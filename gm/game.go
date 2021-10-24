@@ -1,10 +1,7 @@
 package gm
 
 import (
-	"image/color"
-
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/pikomonde/game-210530-theMacaronChef/constant"
 )
 
 var gm game
@@ -21,20 +18,17 @@ func (g *game) Update() error {
 }
 
 func (g *game) Draw(screen *ebiten.Image) {
-	// Color the background
-	screen.Fill(color.NRGBA{0x00, 0x40, 0x80, 0xff})
-
 	// Draw object
-	g.objects.Draw(Screen(screen))
+	g.objects.Draw(screen)
 }
 
 func (g *game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeight int) {
-	return constant.CanvasWidth, constant.CanvasHeight
+	return outsideWidth, outsideHeight
 }
 
-func Init() error {
+func Init(w, h int) error {
 	gm.objects = make(objects)
-	ebiten.SetWindowSize(constant.WindowWidth, constant.WindowHeight)
+	ebiten.SetWindowSize(w, h)
 	return nil
 }
 

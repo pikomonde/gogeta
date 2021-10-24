@@ -3,6 +3,8 @@ package gm
 import (
 	"fmt"
 	"reflect"
+
+	"github.com/hajimehoshi/ebiten/v2"
 )
 
 type objectData struct {
@@ -82,7 +84,7 @@ func (objs objects) Update() {
 }
 
 // Draw all Instances.
-func (objs objects) Draw(screen Screen) {
+func (objs objects) Draw(screen *ebiten.Image) {
 	// TODO: consider z-index when draw objects
 	// TODO: behaviours should be draw outside from this loop
 	for _, objData := range objs[keyByObj] {

@@ -1,6 +1,6 @@
 package behaviour
 
-import "github.com/pikomonde/game-210530-theMacaronChef/gogeta/gm"
+import "github.com/hajimehoshi/ebiten/v2"
 
 type Platformer struct {
 }
@@ -11,7 +11,7 @@ func (bhvr *Platformer) Init() {
 func (bhvr *Platformer) Update() {
 }
 
-func (bhvr *Platformer) Draw(screen gm.Screen) {
+func (bhvr *Platformer) Draw(screen *ebiten.Image) {
 }
 
 // Behaviour specific method

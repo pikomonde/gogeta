@@ -5,13 +5,15 @@ import (
 	"fmt"
 	"log"
 	"reflect"
+
+	"github.com/hajimehoshi/ebiten/v2"
 )
 
 // TODO: Consider different interface between Behaviour and Object
 type Behaviour interface {
 	Init()
 	Update()
-	Draw(Screen)
+	Draw(*ebiten.Image)
 }
 
 // type behaviourData struct {
@@ -172,7 +174,7 @@ func updateBehaviours(obj Object) {
 	}
 }
 
-func drawBehaviours(obj Object, screen Screen) {
+func drawBehaviours(obj Object, screen *ebiten.Image) {
 	objReflectVal := reflect.Indirect(reflect.ValueOf(obj))
 
 	for i := 0; i < objReflectVal.NumField(); i++ {

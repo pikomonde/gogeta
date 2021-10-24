@@ -10,33 +10,33 @@ type Frame struct {
 	Anchor r2.Point
 }
 
-type Animation []*Frame
+type animation []*Frame
 
-type Animations map[string]Animation
+type animations map[string]animation
 
 type Sprite struct {
-	Animations       Animations
-	CurrentAnimation string
-	CurrentFrame     int
+	animations       animations
+	currentAnimation string
+	currentFrame     int
 }
 
 func (bhvr *Sprite) Init() {
 	// bhvr.Image = ebiten.NewImage(int(32), int(32))
-	bhvr.Animations = make(Animations)
-	bhvr.Animations[DefaultAnimationName] = make(Animation, 0)
-	bhvr.CurrentAnimation = DefaultAnimationName
-	bhvr.CurrentFrame = 0
+	bhvr.animations = make(animations)
+	bhvr.animations[DefaultAnimationName] = make(animation, 0)
+	bhvr.currentAnimation = DefaultAnimationName
+	bhvr.currentFrame = 0
 	// bhvr.InsertFrameByImage("", ebiten.NewImage(int(32), int(32)))
 }
 
 func (bhvr *Sprite) GetCurrentFrame() *Frame {
-	if _, ok := bhvr.Animations[bhvr.CurrentAnimation]; !ok {
+	if _, ok := bhvr.animations[bhvr.currentAnimation]; !ok {
 		return nil
 	}
-	if bhvr.CurrentFrame >= len(bhvr.Animations[bhvr.CurrentAnimation]) {
+	if bhvr.currentFrame >= len(bhvr.animations[bhvr.currentAnimation]) {
 		return nil
 	}
-	return bhvr.Animations[bhvr.CurrentAnimation][bhvr.CurrentFrame]
+	return bhvr.animations[bhvr.currentAnimation][bhvr.currentFrame]
 }
 
 // === Sprite ===
@@ -54,7 +54,7 @@ func (bhvr *Sprite) InsertFrame(animationName string, newFrames ...*Frame) {
 		animationName = DefaultAnimationName
 	}
 
-	bhvr.Animations[animationName] = append(bhvr.Animations[animationName], newFrames...)
+	bhvr.animations[animationName] = append(bhvr.animations[animationName], newFrames...)
 }
 
 // InsertFrameByImage insert frame(s) at the end of the animation named
