@@ -12,7 +12,14 @@ type Object interface {
 // Set an Instance to Game and initialize it.
 func InitObject(obj Object) Object {
 	gm.objects.setObject(obj)
-	initBehaviours(obj)
+	preInitBehaviours(obj)
 	obj.Init()
+	postInitBehaviours(obj)
 	return obj
+}
+
+// Delete an Instance from Game and destroy it.
+func DelObject(obj Object) {
+	delBehaviours(obj)
+	gm.objects.delObject(obj)
 }

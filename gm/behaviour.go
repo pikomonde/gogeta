@@ -11,8 +11,10 @@ import (
 
 // TODO: Consider different interface between Behaviour and Object
 type Behaviour interface {
-	Init()
-	Update()
+	PreInit()
+	PostInit()
+	PreUpdate()
+	PostUpdate()
 	Draw(*ebiten.Image)
 }
 
@@ -53,16 +55,16 @@ func (objs objects) setBehaviour(obj Object, bhvr Behaviour) {
 	objd := objectData{object: obj}
 	bhvrType := reflect.TypeOf(bhvr).String()
 
-	// case: keyByBhvr (set behaviour to parentObject-behvaiour relation on
+	// case: KeyByBhvr (set behaviour to parentObject-behvaiour relation on
 	// top level game)
-	key := fmt.Sprintf("%s%p", keyByBhvr, bhvr)
+	key := fmt.Sprintf("%s%p", KeyByBhvr, bhvr)
 	if _, ok := gm.objects[key]; !ok {
 		gm.objects[key] = make(map[Object]objectData)
 	}
 	gm.objects[key][obj] = objd
 
-	// case: keyByBhvrType
-	key = fmt.Sprintf("%s%s", keyByBhvrType, bhvrType)
+	// case: KeyByBhvrType
+	key = fmt.Sprintf("%s%s", KeyByBhvrType, bhvrType)
 	if _, ok := gm.objects[key]; !ok {
 		gm.objects[key] = make(map[Object]objectData)
 	}
@@ -72,14 +74,14 @@ func (objs objects) setBehaviour(obj Object, bhvr Behaviour) {
 func (objs objects) delBehaviour(obj Object, bhvr Behaviour) {
 	bhvrType := reflect.TypeOf(bhvr).String()
 
-	// case: keyByBhvr (set behaviour to parentObject-behvaiour relation on
+	// case: KeyByBhvr (set behaviour to parentObject-behvaiour relation on
 	// top level game)
-	key := fmt.Sprintf("%s%p", keyByBhvr, bhvr)
+	key := fmt.Sprintf("%s%p", KeyByBhvr, bhvr)
 	delete(objs[key], obj)
 	delete(objs, key)
 
-	// case: keyByBhvrType
-	key = fmt.Sprintf("%s%s", keyByBhvrType, bhvrType)
+	// case: KeyByBhvrType
+	key = fmt.Sprintf("%s%s", KeyByBhvrType, bhvrType)
 	delete(objs[key], obj)
 	if len(objs[key]) == 0 {
 		delete(objs, key)
@@ -87,7 +89,7 @@ func (objs objects) delBehaviour(obj Object, bhvr Behaviour) {
 }
 
 func (objs objects) getParentObjectByBehaviour(bhvr Behaviour) (Object, error) {
-	key := fmt.Sprintf("%s%p", keyByBhvr, bhvr)
+	key := fmt.Sprintf("%s%p", KeyByBhvr, bhvr)
 	mapObj, ok := gm.objects[key]
 	if !ok {
 		return nil, errors.New(ErrParentObjectNotFound)
@@ -141,7 +143,21 @@ func MustGetBehaviourRel(bhvrThis Behaviour, bhvrType Behaviour) Behaviour {
 	return nil
 }
 
-func initBehaviours(obj Object) {
+// Get behaviour's parent.
+func GetObjectParent(bhvrThis Behaviour) (Object, error) {
+	return gm.objects.getParentObjectByBehaviour(bhvrThis)
+}
+
+// Get behaviour's parent. Must return, panic if not found.
+func MustGetObjectParent(bhvrThis Behaviour) Object {
+	obj, err := gm.objects.getParentObjectByBehaviour(bhvrThis)
+	if err != nil {
+		log.Fatalf("[MustGetObjectParent] Behaviour %T is not have a parent.", bhvrThis)
+	}
+	return obj
+}
+
+func preInitBehaviours(obj Object) {
 	objReflectVal := reflect.Indirect(reflect.ValueOf(obj))
 
 	for i := 0; i < objReflectVal.NumField(); i++ {
@@ -153,12 +169,12 @@ func initBehaviours(obj Object) {
 		}
 		if bhvr, ok := objReflectVal.Field(i).Addr().Interface().(Behaviour); ok {
 			gm.objects.setBehaviour(obj, bhvr)
-			bhvr.Init()
+			bhvr.PreInit()
 		}
 	}
 }
 
-func updateBehaviours(obj Object) {
+func postInitBehaviours(obj Object) {
 	objReflectVal := reflect.Indirect(reflect.ValueOf(obj))
 
 	for i := 0; i < objReflectVal.NumField(); i++ {
@@ -169,7 +185,56 @@ func updateBehaviours(obj Object) {
 			log.Panicf("Behaviour %v in Object %v should be exported\n", objReflectVal.Field(i).Type().Name(), objReflectVal.Type().Name())
 		}
 		if bhvr, ok := objReflectVal.Field(i).Addr().Interface().(Behaviour); ok {
-			bhvr.Update()
+			// gm.objects.setBehaviour(obj, bhvr)
+			bhvr.PostInit()
+		}
+	}
+}
+
+func preUpdateBehaviours(obj Object) {
+	objReflectVal := reflect.Indirect(reflect.ValueOf(obj))
+
+	for i := 0; i < objReflectVal.NumField(); i++ {
+		if !objReflectVal.Field(i).Addr().Type().Implements(reflect.TypeOf((*Behaviour)(nil)).Elem()) {
+			continue
+		}
+		if !objReflectVal.Field(i).Addr().CanInterface() {
+			log.Panicf("Behaviour %v in Object %v should be exported\n", objReflectVal.Field(i).Type().Name(), objReflectVal.Type().Name())
+		}
+		if bhvr, ok := objReflectVal.Field(i).Addr().Interface().(Behaviour); ok {
+			bhvr.PreUpdate()
+		}
+	}
+}
+
+func postUpdateBehaviours(obj Object) {
+	objReflectVal := reflect.Indirect(reflect.ValueOf(obj))
+
+	for i := 0; i < objReflectVal.NumField(); i++ {
+		if !objReflectVal.Field(i).Addr().Type().Implements(reflect.TypeOf((*Behaviour)(nil)).Elem()) {
+			continue
+		}
+		if !objReflectVal.Field(i).Addr().CanInterface() {
+			log.Panicf("Behaviour %v in Object %v should be exported\n", objReflectVal.Field(i).Type().Name(), objReflectVal.Type().Name())
+		}
+		if bhvr, ok := objReflectVal.Field(i).Addr().Interface().(Behaviour); ok {
+			bhvr.PostUpdate()
+		}
+	}
+}
+
+func delBehaviours(obj Object) {
+	objReflectVal := reflect.Indirect(reflect.ValueOf(obj))
+
+	for i := 0; i < objReflectVal.NumField(); i++ {
+		if !objReflectVal.Field(i).Addr().Type().Implements(reflect.TypeOf((*Behaviour)(nil)).Elem()) {
+			continue
+		}
+		if !objReflectVal.Field(i).Addr().CanInterface() {
+			log.Panicf("Behaviour %v in Object %v should be exported\n", objReflectVal.Field(i).Type().Name(), objReflectVal.Type().Name())
+		}
+		if bhvr, ok := objReflectVal.Field(i).Addr().Interface().(Behaviour); ok {
+			gm.objects.delBehaviour(obj, bhvr)
 		}
 	}
 }

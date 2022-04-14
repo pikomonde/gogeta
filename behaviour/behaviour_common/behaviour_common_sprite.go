@@ -1,78 +1,90 @@
 package behaviour_common
 
 import (
-	"github.com/golang/geo/r2"
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
-type Frame struct {
-	Image  *ebiten.Image
-	Anchor r2.Point
-}
-
-type animation []*Frame
-
-type animations map[string]animation
-
 type Sprite struct {
-	animations       animations
-	currentAnimation string
-	currentFrame     int
+	Animations       Animations
+	CurrentAnimation string
+	CurrentFrame     int
 }
 
-func (bhvr *Sprite) Init() {
-	// bhvr.Image = ebiten.NewImage(int(32), int(32))
-	bhvr.animations = make(animations)
-	bhvr.animations[DefaultAnimationName] = make(animation, 0)
-	bhvr.currentAnimation = DefaultAnimationName
-	bhvr.currentFrame = 0
-	// bhvr.InsertFrameByImage("", ebiten.NewImage(int(32), int(32)))
+func (bhvr *Sprite) PreInit() {
+	// create Amintaions if not exist
+	if bhvr.Animations == nil {
+		bhvr.Animations = make(Animations)
+		return
+	}
+
+	// use available animation as default if exist and not defined yet
+	if bhvr.CurrentAnimation == "" {
+		if len(bhvr.Animations) >= 1 {
+			for k, _ := range bhvr.Animations {
+				bhvr.CurrentAnimation = k
+			}
+		}
+	}
+}
+
+func (bhvr *Sprite) PostInit() {
+	// create Amintaions if not exist
+	if bhvr.Animations == nil {
+		bhvr.Animations = make(Animations)
+		return
+	}
+
+	// use available animation as default if exist and not defined yet
+	if bhvr.CurrentAnimation == "" {
+		if len(bhvr.Animations) >= 1 {
+			for k, _ := range bhvr.Animations {
+				bhvr.CurrentAnimation = k
+			}
+		}
+	}
 }
 
 func (bhvr *Sprite) GetCurrentFrame() *Frame {
-	if _, ok := bhvr.animations[bhvr.currentAnimation]; !ok {
-		return nil
+	if _, ok := bhvr.Animations[bhvr.CurrentAnimation]; !ok {
+		return defaultFrame
 	}
-	if bhvr.currentFrame >= len(bhvr.animations[bhvr.currentAnimation]) {
-		return nil
+	if bhvr.CurrentFrame >= len(*bhvr.Animations[bhvr.CurrentAnimation]) {
+		return defaultFrame
 	}
-	return bhvr.animations[bhvr.currentAnimation][bhvr.currentFrame]
+	return (*bhvr.Animations[bhvr.CurrentAnimation])[bhvr.CurrentFrame]
 }
 
-// === Sprite ===
+// === Behaviour specific method ===
 
-const (
-	DefaultAnimationName = "default"
-)
-
-// InsertFrame insert frame(s) at the end of the animation named
-// "animationName" by Image. If "animationName" is empty, then it will use
-// default value.
+// InsertFrame insert frame(s) at the end of the Animation named
+// "animationName" by Image.
 func (bhvr *Sprite) InsertFrame(animationName string, newFrames ...*Frame) {
-	// validation(s)
-	if animationName == "" {
-		animationName = DefaultAnimationName
-	}
-
-	bhvr.animations[animationName] = append(bhvr.animations[animationName], newFrames...)
+	animation := bhvr.createAnimationIfNotExist(animationName)
+	*animation = append(*animation, newFrames...)
 }
 
-// InsertFrameByImage insert frame(s) at the end of the animation named
-// "animationName" by Image. If "animationName" is empty, then it will use
-// default value.
-func (bhvr *Sprite) InsertFrameByImage(animationName string, images ...*ebiten.Image) {
+// InsertFrameByImage insert frame(s) at the end of the Animation named
+// "animationName" by Image.
+func (bhvr *Sprite) InsertFrameByImage(AnimationName string, images ...*ebiten.Image) {
 	newFrames := make([]*Frame, 0)
 
 	for _, image := range images {
 		newFrame := &Frame{Image: image}
-		newFrame.SetAnchorToggle(Sprite_FrameAnchor_ToggleDefault)
 		newFrames = append(newFrames, newFrame)
 	}
 
-	bhvr.InsertFrame(animationName, newFrames...)
+	bhvr.InsertFrame(AnimationName, newFrames...)
 }
 
-// === Behaviour specific method:  ===
+// createAnimationIfNotExist creates new animation for the object.
+func (bhvr *Sprite) createAnimationIfNotExist(animationName string) *Animation {
+	if _, ok := bhvr.Animations[animationName]; !ok {
+		animation := make(Animation, 0)
+		bhvr.Animations[animationName] = &animation
+	}
+	return bhvr.Animations[animationName]
+}
+
 // func (bhvr *Sprite) SetSize(x, y int) {
 // 	bhvr.Image = ebiten.NewImage(x, y)
 // }
@@ -90,44 +102,14 @@ func (bhvr *Sprite) InsertFrameByImage(animationName string, images ...*ebiten.I
 // 	bhvr.Image = image
 // }
 
-// === Frame ===
+// === Variable and Constant ===
 
-func (bhvr *Frame) SetAnchorToggle(pos FrameAnchorToggle) {
-	w, h := bhvr.Image.Size()
-	switch pos {
-	case Sprite_FrameAnchor_ToggleTopLeft:
-		bhvr.Anchor = r2.Point{0, 0}
-	case Sprite_FrameAnchor_ToggleTopCenter:
-		bhvr.Anchor = r2.Point{float64(w) / 2, 0}
-	case Sprite_FrameAnchor_ToggleTopRight:
-		bhvr.Anchor = r2.Point{float64(w), 0}
-	case Sprite_FrameAnchor_ToggleMiddleLeft:
-		bhvr.Anchor = r2.Point{0, float64(h) / 2}
-	case Sprite_FrameAnchor_ToggleMiddleCenter:
-		bhvr.Anchor = r2.Point{float64(w) / 2, float64(h) / 2}
-	case Sprite_FrameAnchor_ToggleMiddleRight:
-		bhvr.Anchor = r2.Point{float64(w), float64(h) / 2}
-	case Sprite_FrameAnchor_ToggleBottomLeft:
-		bhvr.Anchor = r2.Point{0, float64(h)}
-	case Sprite_FrameAnchor_ToggleBottomCenter:
-		bhvr.Anchor = r2.Point{float64(w) / 2, float64(h)}
-	case Sprite_FrameAnchor_ToggleBottomRight:
-		bhvr.Anchor = r2.Point{float64(w), float64(h)}
-	}
-}
-
-type FrameAnchorToggle int
+var (
+	defaultFrame = (&Frame{
+		Image: ebiten.NewImage(int(32), int(32)),
+	})
+)
 
 const (
-	Sprite_FrameAnchor_ToggleTopLeft FrameAnchorToggle = iota
-	Sprite_FrameAnchor_ToggleTopCenter
-	Sprite_FrameAnchor_ToggleTopRight
-	Sprite_FrameAnchor_ToggleMiddleLeft
-	Sprite_FrameAnchor_ToggleMiddleCenter
-	Sprite_FrameAnchor_ToggleMiddleRight
-	Sprite_FrameAnchor_ToggleBottomLeft
-	Sprite_FrameAnchor_ToggleBottomCenter
-	Sprite_FrameAnchor_ToggleBottomRight
-
-	Sprite_FrameAnchor_ToggleDefault = Sprite_FrameAnchor_ToggleMiddleCenter
+	DefaultAnimationName = "default"
 )
