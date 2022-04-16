@@ -14,6 +14,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	bhvrCommon "github.com/pikomonde/gogeta/behaviour/behaviour_common"
+	bhvrRoom "github.com/pikomonde/gogeta/behaviour/behaviour_room"
 	"github.com/pikomonde/gogeta/gm"
 	"github.com/pikomonde/gogeta/gogetautil"
 )
@@ -41,13 +42,13 @@ func main() {
 }
 
 type room01 struct {
-	Tick          uint64
-	SpawnRate     uint64
-	JunkSpeed     float64
-	Bread         int64
-	Energy        int64
-	JunkInstances []gm.Object
-	IsGameEnd     bool
+	BhvrRoom  bhvrRoom.Room
+	Tick      uint64
+	SpawnRate uint64
+	JunkSpeed float64
+	Bread     int64
+	Energy    int64
+	IsGameEnd bool
 }
 
 func (obj *room01) Init() {
@@ -57,21 +58,15 @@ func (obj *room01) Init() {
 	obj.JunkSpeed = 0.7
 	obj.Bread = 0
 	obj.Energy = 12
-	if obj.JunkInstances == nil {
-		obj.JunkInstances = make([]gm.Object, 0)
-	}
-	for _, junkInst := range obj.JunkInstances {
-		gm.DelObject(junkInst)
-	}
 }
 
 func (obj *room01) Update() {
 
 	// is ended
 	if obj.IsGameEnd {
-		if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
+		if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) || (len(inpututil.AppendJustPressedTouchIDs([]ebiten.TouchID{})) > 0) {
 			obj.IsGameEnd = false
-			obj.Init()
+			obj.BhvrRoom.Restart()
 		}
 		return
 	}
@@ -92,7 +87,7 @@ func (obj *room01) Update() {
 		junkDirAngle := 0.25 * math.Pi * (rand.Float64() - 0.5)
 
 		// create junk instance
-		junkInst := gm.InitObject(&objJunk{BhvrCommon: bhvrCommon.Common{
+		obj.BhvrRoom.InitObject(&objJunk{BhvrCommon: bhvrCommon.Common{
 			Position: r2.Point{
 				X: float64(CanvasWidth)/2 + junkDistance*math.Sin(junkAngle),
 				Y: float64(CanvasHeight)/2 + junkDistance*math.Cos(junkAngle),
@@ -105,19 +100,13 @@ func (obj *room01) Update() {
 		},
 			JunkType: junkJunkType,
 		})
-		obj.JunkInstances = append(obj.JunkInstances, junkInst)
 		obj.Energy--
 	}
 
 	// end the game
 	if obj.Energy <= 0 {
 		// pause the game
-		// TODO: move this to room behaviour
-		for _, v := range obj.JunkInstances {
-			junk := v.(*objJunk)
-			junk.BhvrCommon.IsStopUpdate = true
-		}
-
+		obj.BhvrRoom.Pause()
 		obj.IsGameEnd = true
 	}
 
@@ -220,8 +209,12 @@ func (obj *objJunk) Update() {
 	}
 
 	// when object is clicked
-	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
+	touchIDs := inpututil.AppendJustPressedTouchIDs([]ebiten.TouchID{})
+	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) || (len(touchIDs) > 0) {
 		mouseX, mouseY := ebiten.CursorPosition()
+		if len(touchIDs) > 0 {
+			mouseX, mouseY = ebiten.TouchPosition(touchIDs[0])
+		}
 		if obj.BhvrCommon.IsInside(r2.Point{float64(mouseX), float64(mouseY)}) {
 
 			// increment collected junk

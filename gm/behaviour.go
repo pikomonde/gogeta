@@ -139,7 +139,21 @@ func MustGetBehaviourRel(bhvrThis Behaviour, bhvrType Behaviour) Behaviour {
 			return bhvr
 		}
 	}
-	log.Fatalf("[GetBehaviourRel] Behaviour %T is not found in Object %T. It is required by Behaviour %T.", bhvrType, obj, bhvrThis)
+	log.Fatalf("[MustGetBehaviourRel] Behaviour %T is not found in Object %T. It is required by Behaviour %T.", bhvrType, obj, bhvrThis)
+	return nil
+}
+
+// Get Behaviour by type. Must return, panic if not found.
+func MustGetBehaviour(instThis Object, bhvrThis Behaviour, bhvrType Behaviour) Behaviour {
+	objReflectVal := reflect.Indirect(reflect.ValueOf(instThis))
+
+	for i := 0; i < objReflectVal.NumField(); i++ {
+		field := objReflectVal.Field(i).Addr().Interface()
+		if bhvr, ok := field.(Behaviour); ok && (reflect.TypeOf(bhvr) == reflect.TypeOf(bhvrType)) {
+			return bhvr
+		}
+	}
+	log.Fatalf("[MustGetBehaviour] Behaviour %T is not found in Object %T. It is required by Behaviour %T.", bhvrType, instThis, bhvrThis)
 	return nil
 }
 

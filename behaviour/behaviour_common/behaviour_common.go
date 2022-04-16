@@ -95,6 +95,7 @@ func (bhvr *Common) IsInside(p r2.Point) bool {
 
 // === Package functions ===
 
+// GetInstanceByObject get the first instance of an object.
 func GetInstanceByObject(obj gm.Object) (gm.Object, error) {
 	objDB := gm.GetObjectDB()
 	objType := reflect.TypeOf(obj).String()
@@ -110,7 +111,7 @@ func GetInstanceByObject(obj gm.Object) (gm.Object, error) {
 	return nil, errors.New(gm.ErrInstanceNotFound)
 }
 
-// MustGetInstanceByObject get the first instance of an object
+// MustGetInstanceByObject get the first instance of an object. Panic if ust found.
 func MustGetInstanceByObject(obj gm.Object) gm.Object {
 	objDB := gm.GetObjectDB()
 	objType := reflect.TypeOf(obj).String()
