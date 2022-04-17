@@ -3,22 +3,26 @@ package behaviour_common
 import (
 	"errors"
 	"fmt"
+	"image/color"
 	"log"
 	"reflect"
 
 	"github.com/golang/geo/r1"
 	"github.com/golang/geo/r2"
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/vector"
 	"github.com/pikomonde/gogeta/gm"
 )
 
 type Common struct {
 	Sprite       Sprite
-	Position     r2.Point // Position of the object based on cartesian room
-	Speed        r2.Point // Speed of the object based on cartesian room
-	Angle        float64  // Angle of the object based on sprite anchor
-	Zidx         float64  // Depth of the object
-	IsStopUpdate bool     // Toggle object update or not
+	Position     r2.Point // Position of the instance based on cartesian room
+	Speed        r2.Point // Speed of the instance based on cartesian room
+	Angle        float64  // Angle of the instance based on sprite anchor
+	Scale        r2.Point // Scale of the instance based on sprite anchor
+	Zidx         float64  // Depth of the instance
+	IsStopUpdate bool     // Toggle instance update or not
+	IsDrawMask   bool     // Draw instance's mask
 }
 
 func (bhvr *Common) PreInit() {
@@ -72,25 +76,111 @@ func (bhvr *Common) Draw(screen *ebiten.Image) {
 	// ebitenutil.DebugPrintAt(screen, fmt.Sprintf("frame: %d", bhvr.Sprite.CurrentFrame), 8, 24)
 
 	op := &ebiten.DrawImageOptions{}
-	op.GeoM.Translate(-frame.Anchor.X, -frame.Anchor.Y)
-	op.GeoM.Rotate(bhvr.Angle)
-	op.GeoM.Translate(bhvr.Position.X, bhvr.Position.Y)
+	op.GeoM.Translate(-frame.Anchor().X, -frame.Anchor().Y) // step A
+	op.GeoM.Scale(bhvr.Scale.X, bhvr.Scale.Y)               // step B
+	op.GeoM.Rotate(bhvr.Angle)                              // step C
+	op.GeoM.Translate(bhvr.Position.X, bhvr.Position.Y)     // step D
 	// op.GeoM.Translate(60, 60)
-	(*ebiten.Image)(screen).DrawImage(frame.Image, op)
+	(*ebiten.Image)(screen).DrawImage(frame.Image(), op)
+
+	if bhvr.IsDrawMask {
+		bhvr.drawMask(screen)
+	}
 }
 
 // === Behaviour specific method ===
 
-func (bhvr *Common) IsInside(p r2.Point) bool {
+func (bhvr *Common) IsInside(pPos r2.Point) bool {
 	// TODO: use mask in "Frame" instead (for collision)
 	frame := bhvr.Sprite.GetCurrentFrame()
-	w, h := frame.Image.Size()
-	maskRectZero := bhvr.Position.Sub(frame.Anchor)
-	maskRect := r2.Rect{
-		X: r1.Interval{Lo: maskRectZero.X, Hi: maskRectZero.X + float64(w)},
-		Y: r1.Interval{Lo: maskRectZero.Y, Hi: maskRectZero.Y + float64(h)},
+	vectors := frame.Mask().Vectors()
+
+	geoMForP := ebiten.GeoM{}
+	geoMForP.Translate(-bhvr.Position.X, -bhvr.Position.Y) // reversed step D
+	geoMForP.Rotate(-bhvr.Angle)                           // reversed step C
+
+	geoMForMask := ebiten.GeoM{}
+	geoMForMask.Translate(-frame.Anchor().X, -frame.Anchor().Y) // step A
+	geoMForMask.Scale(bhvr.Scale.X, bhvr.Scale.Y)               // step B
+
+	switch frame.MaskType() {
+	case Sprite_MaskType_Circle:
+		// TODO: implement Sprite_MaskType_Circle mask
+		return false
+	case Sprite_MaskType_Recatangle:
+		pX, pY := geoMForP.Apply(pPos.X, pPos.Y)
+		maskZeroX, maskZeroY := geoMForMask.Apply(vectors[0].X, vectors[0].Y)
+		maskEndX, maskEndY := geoMForMask.Apply(vectors[2].X, vectors[2].Y)
+		mask := r2.Rect{
+			X: r1.Interval{Lo: maskZeroX, Hi: maskEndX},
+			Y: r1.Interval{Lo: maskZeroY, Hi: maskEndY},
+		}
+		return mask.ContainsPoint(r2.Point{X: pX, Y: pY})
+	case Sprite_MaskType_Capsule:
+		// TODO: implement Sprite_MaskType_Capsule mask
+		return false
+	case Sprite_MaskType_ConvexHull:
+		// TODO: implement Sprite_MaskType_ConvexHull mask
+		return false
+	default:
+		return false
 	}
-	return maskRect.ContainsPoint(p)
+}
+
+// TODO: geoM.Apply using gpu
+func (bhvr *Common) drawMask(screen *ebiten.Image) {
+	var path vector.Path
+	lineWidth := float64(1)
+	frame := bhvr.Sprite.GetCurrentFrame()
+	vectors := frame.Mask().Vectors()
+
+	geoM := ebiten.GeoM{}
+	geoM.Translate(-frame.Anchor().X, -frame.Anchor().Y) // step A
+	geoM.Scale(bhvr.Scale.X, bhvr.Scale.Y)               // step B
+	geoM.Rotate(bhvr.Angle)                              // step C
+	geoM.Translate(bhvr.Position.X, bhvr.Position.Y)     // step D
+
+	switch frame.MaskType() {
+	case Sprite_MaskType_Circle:
+		// TODO: implement Sprite_MaskType_Circle mask
+	case Sprite_MaskType_Recatangle:
+		innerVectors := make([]r2.Point, 0)
+		innerVectors = append(innerVectors, r2.Point{X: vectors[0].X + lineWidth, Y: vectors[0].Y + lineWidth})
+		innerVectors = append(innerVectors, r2.Point{X: vectors[1].X - lineWidth, Y: vectors[1].Y + lineWidth})
+		innerVectors = append(innerVectors, r2.Point{X: vectors[2].X - lineWidth, Y: vectors[2].Y - lineWidth})
+		innerVectors = append(innerVectors, r2.Point{X: vectors[3].X + lineWidth, Y: vectors[3].Y - lineWidth})
+
+		for i, vector := range vectors {
+			x, y := geoM.Apply(vector.X, vector.Y)
+			if i == 0 {
+				path.MoveTo(float32(x), float32(y))
+				continue
+			}
+			path.LineTo(float32(x), float32(y))
+		}
+
+		for i, vector := range innerVectors {
+			x, y := geoM.Apply(vector.X, vector.Y)
+			if i == 0 {
+				path.MoveTo(float32(x), float32(y))
+				continue
+			}
+			path.LineTo(float32(x), float32(y))
+		}
+	case Sprite_MaskType_Capsule:
+		// TODO: implement Sprite_MaskType_Capsule mask
+	case Sprite_MaskType_ConvexHull:
+		// TODO: implement Sprite_MaskType_ConvexHull mask
+	default:
+		return
+	}
+
+	vs, is := path.AppendVerticesAndIndicesForFilling(nil, nil)
+	emptyImage := ebiten.NewImage(1, 1)
+	emptyImage.Fill(color.NRGBA{0xff, 0x00, 0x00, 0xff})
+	screen.DrawTriangles(vs, is, emptyImage, &ebiten.DrawTrianglesOptions{
+		FillRule: ebiten.EvenOdd,
+	})
 }
 
 // === Package functions ===
@@ -118,7 +208,7 @@ func MustGetInstanceByObject(obj gm.Object) gm.Object {
 
 	key := fmt.Sprintf("%s%s", gm.KeyByObjType, objType)
 	if _, ok := objDB[key]; !ok {
-		log.Fatalf("[MustGetInstanceByObject] There is no instance for object %T.", obj)
+		log.Panicf("[MustGetInstanceByObject] There is no instance for object %T.", obj)
 		return nil
 	}
 
@@ -126,6 +216,6 @@ func MustGetInstanceByObject(obj gm.Object) gm.Object {
 		return inst
 	}
 
-	log.Fatalf("[MustGetInstanceByObject] There is no instance for object %T.", obj)
+	log.Panicf("[MustGetInstanceByObject] There is no instance for object %T.", obj)
 	return nil
 }

@@ -69,7 +69,7 @@ func (bhvr *Sprite) InsertFrameByImage(AnimationName string, images ...*ebiten.I
 	newFrames := make([]*Frame, 0)
 
 	for _, image := range images {
-		newFrame := &Frame{Image: image}
+		newFrame := (&Frame{}).SetImage(image)
 		newFrames = append(newFrames, newFrame)
 	}
 
@@ -105,9 +105,9 @@ func (bhvr *Sprite) createAnimationIfNotExist(animationName string) *Animation {
 // === Variable and Constant ===
 
 var (
-	defaultFrame = (&Frame{
-		Image: ebiten.NewImage(int(32), int(32)),
-	})
+	defaultFrame = (&Frame{}).SetImage(
+		ebiten.NewImage(int(32), int(32)),
+	)
 )
 
 const (

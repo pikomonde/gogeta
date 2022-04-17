@@ -22,18 +22,25 @@ import (
 const (
 	WindowWidth  = 600
 	WindowHeight = 600
-	CanvasWidth  = 300
-	CanvasHeight = 300
+	CanvasWidth  = WindowWidth
+	CanvasHeight = WindowHeight
 	// CanvasWidth  = 186
 	// CanvasHeight = 300
-	// CanvasWidth  = 93
-	// CanvasHeight = 150
+	// CanvasWidth  = 93  // safe zone area is 67.5 pixel (based on 20:9), which is pixel 13-80
+	// CanvasHeight = 150 // safe zone area is 124 pixel (based on 4:3), which is pixel 13-137
 )
+
+// TODO:
+// ui should get from actual width & height
+// room's action should on canvas's safe zone
 
 func main() {
 	// Initialize objects
 	gm.Init(WindowWidth, WindowHeight, CanvasWidth, CanvasHeight)
 	gm.InitObject(&room01{})
+	// img := ebiten.NewImage(32, 8)
+	// img.Fill(color.Black)
+	// (*objJunkAnimation["junk_energy"])[0].SetImage(img).SetAnchorToggle(bhvrCommon.Sprite_FrameAnchor_ToggleMiddleLeft).SetMaskFill()
 
 	// Run game
 	if err := gm.Run(); err != nil {
@@ -55,12 +62,13 @@ func (obj *room01) Init() {
 	rand.Seed(time.Now().UnixNano())
 	obj.Tick = 0
 	obj.SpawnRate = 60
-	obj.JunkSpeed = 0.7
+	obj.JunkSpeed = 1.4
 	obj.Bread = 0
 	obj.Energy = 12
 }
 
 func (obj *room01) Update() {
+	// ebiten.SetWindowTitle(fmt.Sprintf("%2f %2f", ebiten.CurrentTPS(), ebiten.CurrentFPS()))
 
 	// is ended
 	if obj.IsGameEnd {
@@ -96,7 +104,9 @@ func (obj *room01) Update() {
 				X: -math.Sin(junkAngle + junkDirAngle),
 				Y: -math.Cos(junkAngle + junkDirAngle),
 			}.Normalize().Mul(obj.JunkSpeed),
-			Zidx: 50,
+			Scale: r2.Point{X: 2, Y: 2},
+			Zidx:  50,
+			// IsDrawMask: true,
 		},
 			JunkType: junkJunkType,
 		})
@@ -155,20 +165,20 @@ func (obj *room01) Draw(screen *ebiten.Image) {
 
 var objJunkAnimation bhvrCommon.Animations = bhvrCommon.Animations{
 	"junk_ball": &bhvrCommon.Animation{
-		(&bhvrCommon.Frame{Image: gogetautil.MustNewEbitenImageFromFile("asset/sprite/spr_red_ball_16x16.png")}).SetAnchorToggle(bhvrCommon.Sprite_FrameAnchor_ToggleMiddleCenter),
+		(&bhvrCommon.Frame{}).SetImage(gogetautil.MustNewEbitenImageFromFile("asset/sprite/spr_red_ball_16x16.png")).SetAnchorToggle(bhvrCommon.Sprite_FrameAnchor_ToggleMiddleCenter).SetMaskFill(),
 	},
 	"junk_energy": &bhvrCommon.Animation{
-		(&bhvrCommon.Frame{Image: gogetautil.MustNewEbitenImageFromFile("asset/sprite/spr_battery_16x16.png")}).SetAnchorToggle(bhvrCommon.Sprite_FrameAnchor_ToggleMiddleCenter),
+		(&bhvrCommon.Frame{}).SetImage(gogetautil.MustNewEbitenImageFromFile("asset/sprite/spr_battery_16x16.png")).SetAnchorToggle(bhvrCommon.Sprite_FrameAnchor_ToggleMiddleCenter).SetMaskFill(),
 	},
 	"junk_bread": &bhvrCommon.Animation{
-		(&bhvrCommon.Frame{Image: gogetautil.MustNewEbitenImageFromFile("asset/sprite/spr_bread_slice_16x16.png")}).SetAnchorToggle(bhvrCommon.Sprite_FrameAnchor_ToggleMiddleCenter),
-		(&bhvrCommon.Frame{Image: gogetautil.MustNewEbitenImageFromFile("asset/sprite/spr_croisant_16x16.png")}).SetAnchorToggle(bhvrCommon.Sprite_FrameAnchor_ToggleMiddleCenter),
+		(&bhvrCommon.Frame{}).SetImage(gogetautil.MustNewEbitenImageFromFile("asset/sprite/spr_bread_slice_16x16.png")).SetAnchorToggle(bhvrCommon.Sprite_FrameAnchor_ToggleMiddleCenter).SetMaskFill(),
+		(&bhvrCommon.Frame{}).SetImage(gogetautil.MustNewEbitenImageFromFile("asset/sprite/spr_croisant_16x16.png")).SetAnchorToggle(bhvrCommon.Sprite_FrameAnchor_ToggleMiddleCenter).SetMaskFill(),
 	},
 	"ui_energy": &bhvrCommon.Animation{
-		(&bhvrCommon.Frame{Image: gogetautil.MustNewEbitenImageFromFile("asset/sprite/spr_electricity_16x16.png")}).SetAnchorToggle(bhvrCommon.Sprite_FrameAnchor_ToggleMiddleCenter),
+		(&bhvrCommon.Frame{}).SetImage(gogetautil.MustNewEbitenImageFromFile("asset/sprite/spr_electricity_16x16.png")).SetAnchorToggle(bhvrCommon.Sprite_FrameAnchor_ToggleMiddleCenter).SetMaskFill(),
 	},
 	"ui_bread": &bhvrCommon.Animation{
-		(&bhvrCommon.Frame{Image: gogetautil.MustNewEbitenImageFromFile("asset/sprite/spr_bread_slice_16x16.png")}).SetAnchorToggle(bhvrCommon.Sprite_FrameAnchor_ToggleMiddleCenter),
+		(&bhvrCommon.Frame{}).SetImage(gogetautil.MustNewEbitenImageFromFile("asset/sprite/spr_bread_slice_16x16.png")).SetAnchorToggle(bhvrCommon.Sprite_FrameAnchor_ToggleMiddleCenter).SetMaskFill(),
 	},
 }
 
@@ -204,8 +214,16 @@ func (obj *objJunk) Init() {
 
 func (obj *objJunk) Update() {
 	obj.Tick++
-	if obj.Tick%1500 == 0 {
-		gm.DelObject(obj)
+	obj.BhvrCommon.Angle += 0.01
+
+	// TODO: destroy out of room
+
+	// slow down
+	if obj.Tick > 200 {
+		// gm.DelObject(obj)
+		if obj.BhvrCommon.Speed.Norm() > 0.1 {
+			obj.BhvrCommon.Speed = obj.BhvrCommon.Speed.Mul(0.97)
+		}
 	}
 
 	// when object is clicked
@@ -226,7 +244,7 @@ func (obj *objJunk) Update() {
 			}
 
 			// increase difficulty
-			objRoom01.JunkSpeed += 0.01
+			objRoom01.JunkSpeed += 0.02
 
 			// delete junk
 			gm.DelObject(obj)

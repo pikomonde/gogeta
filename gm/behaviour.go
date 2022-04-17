@@ -115,7 +115,7 @@ func (objs objects) getParentObjectByBehaviour(bhvr Behaviour) (Object, error) {
 // 	if bhvr := gm.objects.getObjectData(obj).behaviours.get(bhvrType); bhvr != nil {
 // 		return bhvr
 // 	}
-// 	log.Fatalf("[GetBehaviour] Behaviour %T is not found in Object %T", bhvrType, obj)
+// 	log.Panicf("[GetBehaviour] Behaviour %T is not found in Object %T", bhvrType, obj)
 // 	return nil
 // }
 
@@ -139,7 +139,7 @@ func MustGetBehaviourRel(bhvrThis Behaviour, bhvrType Behaviour) Behaviour {
 			return bhvr
 		}
 	}
-	log.Fatalf("[MustGetBehaviourRel] Behaviour %T is not found in Object %T. It is required by Behaviour %T.", bhvrType, obj, bhvrThis)
+	log.Panicf("[MustGetBehaviourRel] Behaviour %T is not found in Object %T. It is required by Behaviour %T.", bhvrType, obj, bhvrThis)
 	return nil
 }
 
@@ -153,7 +153,7 @@ func MustGetBehaviour(instThis Object, bhvrThis Behaviour, bhvrType Behaviour) B
 			return bhvr
 		}
 	}
-	log.Fatalf("[MustGetBehaviour] Behaviour %T is not found in Object %T. It is required by Behaviour %T.", bhvrType, instThis, bhvrThis)
+	log.Panicf("[MustGetBehaviour] Behaviour %T is not found in Object %T. It is required by Behaviour %T.", bhvrType, instThis, bhvrThis)
 	return nil
 }
 
@@ -166,7 +166,7 @@ func GetObjectParent(bhvrThis Behaviour) (Object, error) {
 func MustGetObjectParent(bhvrThis Behaviour) Object {
 	obj, err := gm.objects.getParentObjectByBehaviour(bhvrThis)
 	if err != nil {
-		log.Fatalf("[MustGetObjectParent] Behaviour %T is not have a parent.", bhvrThis)
+		log.Panicf("[MustGetObjectParent] Behaviour %T is not have a parent.", bhvrThis)
 	}
 	return obj
 }
