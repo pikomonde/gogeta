@@ -60,6 +60,7 @@ type room01 struct {
 
 func (obj *room01) Init() {
 	rand.Seed(time.Now().UnixNano())
+	obj.BhvrRoom.Size = r2.Point{X: CanvasWidth, Y: CanvasHeight}
 	obj.Tick = 0
 	obj.SpawnRate = 60
 	obj.JunkSpeed = 1.4
@@ -68,7 +69,7 @@ func (obj *room01) Init() {
 }
 
 func (obj *room01) Update() {
-	// ebiten.SetWindowTitle(fmt.Sprintf("%2f %2f", ebiten.CurrentTPS(), ebiten.CurrentFPS()))
+	// ebiten.SetWindowTitle(fmt.Sprintf("%2f %2f %d", ebiten.CurrentTPS(), ebiten.CurrentFPS(), len(gm.GetObjectDB()["obj"])))
 
 	// is ended
 	if obj.IsGameEnd {
@@ -85,7 +86,7 @@ func (obj *room01) Update() {
 		// initialize junk instance value
 		junkJunkTypeRand := rand.Intn(100)
 		var junkJunkType junkType
-		if junkJunkTypeRand <= 20 {
+		if junkJunkTypeRand <= 35 {
 			junkJunkType = junkTypeBread
 		} else {
 			junkJunkType = junkTypeEnergy
@@ -95,21 +96,25 @@ func (obj *room01) Update() {
 		junkDirAngle := 0.25 * math.Pi * (rand.Float64() - 0.5)
 
 		// create junk instance
-		obj.BhvrRoom.InitObject(&objJunk{BhvrCommon: bhvrCommon.Common{
-			Position: r2.Point{
-				X: float64(CanvasWidth)/2 + junkDistance*math.Sin(junkAngle),
-				Y: float64(CanvasHeight)/2 + junkDistance*math.Cos(junkAngle),
+		obj.BhvrRoom.InitObject(
+			&objJunk{
+				BhvrCommon: bhvrCommon.Common{
+					Position: r2.Point{
+						X: float64(CanvasWidth)/2 + junkDistance*math.Sin(junkAngle),
+						Y: float64(CanvasHeight)/2 + junkDistance*math.Cos(junkAngle),
+					},
+					Speed: r2.Point{
+						X: -math.Sin(junkAngle + junkDirAngle),
+						Y: -math.Cos(junkAngle + junkDirAngle),
+					}.Normalize().Mul(obj.JunkSpeed),
+					Scale:      r2.Point{X: 2, Y: 2},
+					Zidx:       50,
+					IsDrawMask: true,
+				},
+				JunkType: junkJunkType,
 			},
-			Speed: r2.Point{
-				X: -math.Sin(junkAngle + junkDirAngle),
-				Y: -math.Cos(junkAngle + junkDirAngle),
-			}.Normalize().Mul(obj.JunkSpeed),
-			Scale: r2.Point{X: 2, Y: 2},
-			Zidx:  50,
-			// IsDrawMask: true,
-		},
-			JunkType: junkJunkType,
-		})
+			bhvrRoom.InstanceData{},
+		)
 		obj.Energy--
 	}
 
@@ -216,12 +221,14 @@ func (obj *objJunk) Update() {
 	obj.Tick++
 	obj.BhvrCommon.Angle += 0.01
 
-	// TODO: destroy out of room
+	// activate out-of-room destroy instance, once inside the room
+	if !bhvrRoom.IsOutside(obj) {
+		bhvrRoom.Data(obj).IsDeleteWhenOutside = true
+	}
 
 	// slow down
 	if obj.Tick > 200 {
-		// gm.DelObject(obj)
-		if obj.BhvrCommon.Speed.Norm() > 0.1 {
+		if obj.BhvrCommon.Speed.Norm() > 0.3 {
 			obj.BhvrCommon.Speed = obj.BhvrCommon.Speed.Mul(0.97)
 		}
 	}
@@ -236,15 +243,15 @@ func (obj *objJunk) Update() {
 		if obj.BhvrCommon.IsInside(r2.Point{float64(mouseX), float64(mouseY)}) {
 
 			// increment collected junk
-			objRoom01 := bhvrCommon.MustGetInstanceByObject(&room01{}).(*room01)
+			instRoom01 := gm.MustGetObjectParent(bhvrRoom.Data(obj).Room()).(*room01)
 			if obj.JunkType == junkTypeBread {
-				objRoom01.Bread++
+				instRoom01.Bread++
 			} else if obj.JunkType == junkTypeEnergy {
-				objRoom01.Energy += 2
+				instRoom01.Energy += 2
 			}
 
 			// increase difficulty
-			objRoom01.JunkSpeed += 0.02
+			instRoom01.JunkSpeed += 0.02
 
 			// delete junk
 			gm.DelObject(obj)
@@ -253,6 +260,4 @@ func (obj *objJunk) Update() {
 }
 
 func (obj *objJunk) Draw(screen *ebiten.Image) {
-	// Color the background
-	// screen.Fill(color.NRGBA{0x00, 0x40, 0x80, 0xff})
 }

@@ -52,21 +52,21 @@ type Behaviour interface {
 func (objs objects) setBehaviour(obj Object, bhvr Behaviour) {
 	// no need to set behaviour to object's behaviour, because behaviour
 	// already set programatically
-	objd := objectData{object: obj}
+	objd := ObjectData{object: obj}
 	bhvrType := reflect.TypeOf(bhvr).String()
 
 	// case: KeyByBhvr (set behaviour to parentObject-behvaiour relation on
 	// top level game)
 	key := fmt.Sprintf("%s%p", KeyByBhvr, bhvr)
 	if _, ok := gm.objects[key]; !ok {
-		gm.objects[key] = make(map[Object]objectData)
+		gm.objects[key] = make(map[Object]ObjectData)
 	}
 	gm.objects[key][obj] = objd
 
 	// case: KeyByBhvrType
 	key = fmt.Sprintf("%s%s", KeyByBhvrType, bhvrType)
 	if _, ok := gm.objects[key]; !ok {
-		gm.objects[key] = make(map[Object]objectData)
+		gm.objects[key] = make(map[Object]ObjectData)
 	}
 	gm.objects[key][obj] = objd
 }

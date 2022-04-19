@@ -1,11 +1,7 @@
 package behaviour_common
 
 import (
-	"errors"
-	"fmt"
 	"image/color"
-	"log"
-	"reflect"
 
 	"github.com/golang/geo/r1"
 	"github.com/golang/geo/r2"
@@ -80,7 +76,6 @@ func (bhvr *Common) Draw(screen *ebiten.Image) {
 	op.GeoM.Scale(bhvr.Scale.X, bhvr.Scale.Y)               // step B
 	op.GeoM.Rotate(bhvr.Angle)                              // step C
 	op.GeoM.Translate(bhvr.Position.X, bhvr.Position.Y)     // step D
-	// op.GeoM.Translate(60, 60)
 	(*ebiten.Image)(screen).DrawImage(frame.Image(), op)
 
 	if bhvr.IsDrawMask {
@@ -125,6 +120,18 @@ func (bhvr *Common) IsInside(pPos r2.Point) bool {
 	default:
 		return false
 	}
+}
+
+func (bhvr *Common) TrasnformedMask() Mask {
+	frame := bhvr.Sprite.GetCurrentFrame()
+
+	geoM := ebiten.GeoM{}
+	geoM.Translate(-frame.Anchor().X, -frame.Anchor().Y) // step A
+	geoM.Scale(bhvr.Scale.X, bhvr.Scale.Y)               // step B
+	geoM.Rotate(bhvr.Angle)                              // step C
+	geoM.Translate(bhvr.Position.X, bhvr.Position.Y)     // step D
+
+	return frame.Mask().GeoTransform(geoM)
 }
 
 // TODO: geoM.Apply using gpu
@@ -185,37 +192,37 @@ func (bhvr *Common) drawMask(screen *ebiten.Image) {
 
 // === Package functions ===
 
-// GetInstanceByObject get the first instance of an object.
-func GetInstanceByObject(obj gm.Object) (gm.Object, error) {
-	objDB := gm.GetObjectDB()
-	objType := reflect.TypeOf(obj).String()
+// // GetInstanceByObject get the first instance of an object.
+// func GetInstanceByObject(obj gm.Object) (gm.Object, error) {
+// 	objDB := gm.GetObjectDB()
+// 	objType := reflect.TypeOf(obj).String()
 
-	key := fmt.Sprintf("%s%s", gm.KeyByObjType, objType)
-	if _, ok := objDB[key]; !ok {
-		return nil, errors.New(gm.ErrInstanceNotFound)
-	}
+// 	key := fmt.Sprintf("%s%s", gm.KeyByObjType, objType)
+// 	if _, ok := objDB[key]; !ok {
+// 		return nil, errors.New(gm.ErrInstanceNotFound)
+// 	}
 
-	for inst, _ := range objDB[key] {
-		return inst, nil
-	}
-	return nil, errors.New(gm.ErrInstanceNotFound)
-}
+// 	for inst, _ := range objDB[key] {
+// 		return inst, nil
+// 	}
+// 	return nil, errors.New(gm.ErrInstanceNotFound)
+// }
 
-// MustGetInstanceByObject get the first instance of an object. Panic if ust found.
-func MustGetInstanceByObject(obj gm.Object) gm.Object {
-	objDB := gm.GetObjectDB()
-	objType := reflect.TypeOf(obj).String()
+// // MustGetInstanceByObject get the first instance of an object. Panic if ust found.
+// func MustGetInstanceByObject(obj gm.Object) gm.Object {
+// 	objDB := gm.GetObjectDB()
+// 	objType := reflect.TypeOf(obj).String()
 
-	key := fmt.Sprintf("%s%s", gm.KeyByObjType, objType)
-	if _, ok := objDB[key]; !ok {
-		log.Panicf("[MustGetInstanceByObject] There is no instance for object %T.", obj)
-		return nil
-	}
+// 	key := fmt.Sprintf("%s%s", gm.KeyByObjType, objType)
+// 	if _, ok := objDB[key]; !ok {
+// 		log.Panicf("[MustGetInstanceByObject] There is no instance for object %T.", obj)
+// 		return nil
+// 	}
 
-	for inst, _ := range objDB[key] {
-		return inst
-	}
+// 	for inst, _ := range objDB[key] {
+// 		return inst
+// 	}
 
-	log.Panicf("[MustGetInstanceByObject] There is no instance for object %T.", obj)
-	return nil
-}
+// 	log.Panicf("[MustGetInstanceByObject] There is no instance for object %T.", obj)
+// 	return nil
+// }
