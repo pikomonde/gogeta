@@ -11,12 +11,12 @@ import (
 
 	"github.com/golang/geo/r2"
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	bhvrCommon "github.com/pikomonde/gogeta/behaviour/behaviour_common"
 	bhvrRoom "github.com/pikomonde/gogeta/behaviour/behaviour_room"
 	"github.com/pikomonde/gogeta/gm"
 	"github.com/pikomonde/gogeta/gogetautil"
+	"github.com/pikomonde/gogeta/gogetautil/txt"
 )
 
 const (
@@ -29,6 +29,8 @@ const (
 	// CanvasWidth  = 93  // safe zone area is 67.5 pixel (based on 20:9), which is pixel 13-80
 	// CanvasHeight = 150 // safe zone area is 124 pixel (based on 4:3), which is pixel 13-137
 )
+
+var fontBocil57 = txt.MustNewFontFromFile("asset/sprite/font_bocil_57_0020_007F.png", 5, 7, txt.CharSet_0020_007F, txt.Font{Size: 24})
 
 // TODO:
 // ui should get from actual width & height
@@ -59,6 +61,7 @@ type room01 struct {
 }
 
 func (obj *room01) Init() {
+	// fontBocil57 = txt.MustNewFontFromFile("asset/sprite/font_bocil_55_0020_007F.png", 5, 5, txt.CharSet_0020_007F)
 	rand.Seed(time.Now().UnixNano())
 	obj.BhvrRoom.Size = r2.Point{X: CanvasWidth, Y: CanvasHeight}
 	obj.Tick = 0
@@ -69,7 +72,7 @@ func (obj *room01) Init() {
 }
 
 func (obj *room01) Update() {
-	// ebiten.SetWindowTitle(fmt.Sprintf("%2f %2f %d", ebiten.CurrentTPS(), ebiten.CurrentFPS(), len(gm.GetObjectDB()["obj"])))
+	ebiten.SetWindowTitle(fmt.Sprintf("%2f %2f %d", ebiten.CurrentTPS(), ebiten.CurrentFPS(), len(gm.GetObjectDB()["obj"])))
 
 	// is ended
 	if obj.IsGameEnd {
@@ -154,12 +157,17 @@ func (obj *room01) Draw(screen *ebiten.Image) {
 	// 	}
 	// }
 
-	ebitenutil.DebugPrintAt(screen, fmt.Sprintf("Energy: %d", obj.Energy), 8, 8)
-	ebitenutil.DebugPrintAt(screen, fmt.Sprintf("Bread: %d", obj.Bread), 8, 24)
+	fontBocil57.LineHeight = 3
+	fontBocil57.Size = 24
+	fontBocil57.Allignment = txt.Allignment_TopLeft
+	fontBocil57.Draw(screen, fmt.Sprintf("ENERGY: %d\nBREAD: %d", obj.Energy, obj.Bread), 16, 16)
 
 	if obj.IsGameEnd {
-		ebitenutil.DebugPrintAt(screen, fmt.Sprintf("THE END: YOU GOT %d BREAD", obj.Bread), CanvasWidth/2-75, CanvasHeight/2-4)
-		ebitenutil.DebugPrintAt(screen, "CLICK ANYWHERE TO CONTINUE", CanvasWidth/2-78, CanvasHeight/2+12)
+		fontBocil57.Size = 20
+		fontBocil57.Allignment = txt.Allignment_MiddleCenter
+		fontBocil57.Draw(screen,
+			fmt.Sprintf("THE END: YOU GOT %d BREAD\nCLICK ANYWHERE TO CONTINUE", obj.Bread),
+			CanvasWidth/2, CanvasHeight/2)
 	}
 
 }

@@ -38,6 +38,9 @@ type Room struct {
 
 func (bhvr *Room) Instances() []gm.Object { return bhvr.instances }
 
+// TODO: what to do with room's window? is it as view camera? do we still need game's canvas width/height?
+// is there any limitation on "active" room (because we need to attach camera to a room)? should we attach
+// a camera to a room? how camera works?
 func (bhvr *Room) window() r2.Rect {
 	return r2.Rect{
 		X: r1.Interval{Lo: bhvr.Position.X, Hi: bhvr.Position.X + bhvr.Size.X},
