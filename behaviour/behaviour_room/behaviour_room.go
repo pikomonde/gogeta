@@ -11,25 +11,6 @@ import (
 	"github.com/pikomonde/gogeta/gm"
 )
 
-// === Behaviour data ===
-
-var (
-	instancesData map[gm.Object]*InstanceData
-)
-
-type InstanceData struct {
-	room                *Room
-	IsDeleteWhenOutside bool
-}
-
-func (data *InstanceData) Room() *Room { return data.room }
-
-func init() {
-	instancesData = make(map[gm.Object]*InstanceData)
-}
-
-// === Behaviour ===
-
 type Room struct {
 	Position  r2.Point
 	Size      r2.Point
@@ -120,13 +101,10 @@ func (bhvr *Room) Pause() {
 }
 
 // === Package functions ===
+
 func IsOutside(instance gm.Object) bool {
 	instCommon := gm.MustGetBehaviour(instance, &Room{}, &bhvrCommon.Common{}).(*bhvrCommon.Common)
 	roomWindow := instancesData[instance].room.window()
 	maskOuterRect := instCommon.TrasnformedMask().OuterRectangle()
 	return !roomWindow.ContainsPoint(maskOuterRect.Lo()) && !roomWindow.ContainsPoint(maskOuterRect.Hi())
-}
-
-func Data(instance gm.Object) *InstanceData {
-	return instancesData[instance]
 }

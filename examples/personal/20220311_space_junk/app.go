@@ -39,10 +39,7 @@ var fontBocil57 = txt.MustNewFontFromFile("asset/sprite/font_bocil_57_0020_007F.
 func main() {
 	// Initialize objects
 	gm.Init(WindowWidth, WindowHeight, CanvasWidth, CanvasHeight)
-	gm.InitObject(&room01{})
-	// img := ebiten.NewImage(32, 8)
-	// img.Fill(color.Black)
-	// (*objJunkAnimation["junk_energy"])[0].SetImage(img).SetAnchorToggle(bhvrCommon.Sprite_FrameAnchor_ToggleMiddleLeft).SetMaskFill()
+	gm.InitObject(&roomMain{})
 
 	// Run game
 	if err := gm.Run(); err != nil {
@@ -50,7 +47,34 @@ func main() {
 	}
 }
 
-type room01 struct {
+type ui struct{ BhvrCommon bhvrCommon.Common }
+
+func (obj *ui) Init()   {}
+func (obj *ui) Update() {}
+func (obj *ui) Draw(screen *ebiten.Image) {
+	instRoomMain := gm.MustGetObjectParent(bhvrRoom.Data(obj).Room()).(*roomMain)
+
+	fontBocil57.LineHeight = 3
+	fontBocil57.Size = 24
+	fontBocil57.Allignment = txt.Allignment_TopLeft
+	fontBocil57.Draw(screen, fmt.Sprintf("ENERGY: %d\nBREAD: %d", instRoomMain.Energy, instRoomMain.Bread), 16, 16)
+
+	if instRoomMain.IsGameEnd {
+		fontBocil57.Size = 20
+		fontBocil57.Allignment = txt.Allignment_MiddleCenter
+		fontBocil57.Draw(screen,
+			fmt.Sprintf("THE END: YOU GOT %d BREAD\nCLICK ANYWHERE TO CONTINUE", instRoomMain.Bread),
+			CanvasWidth/2, CanvasHeight/2)
+	}
+
+	fontBocil57.Size = 12
+	fontBocil57.Allignment = txt.Allignment_BottomLeft
+	fontBocil57.Draw(screen,
+		fmt.Sprintf("%2f %2f %d", ebiten.CurrentTPS(), ebiten.CurrentFPS(), len(gm.GetObjectDB()["obj"])),
+		16, CanvasHeight-16)
+}
+
+type roomMain struct {
 	BhvrRoom  bhvrRoom.Room
 	Tick      uint64
 	SpawnRate uint64
@@ -60,8 +84,7 @@ type room01 struct {
 	IsGameEnd bool
 }
 
-func (obj *room01) Init() {
-	// fontBocil57 = txt.MustNewFontFromFile("asset/sprite/font_bocil_55_0020_007F.png", 5, 5, txt.CharSet_0020_007F)
+func (obj *roomMain) Init() {
 	rand.Seed(time.Now().UnixNano())
 	obj.BhvrRoom.Size = r2.Point{X: CanvasWidth, Y: CanvasHeight}
 	obj.Tick = 0
@@ -69,10 +92,13 @@ func (obj *room01) Init() {
 	obj.JunkSpeed = 1.4
 	obj.Bread = 0
 	obj.Energy = 12
+
+	// ui
+	obj.BhvrRoom.InitObject(&ui{BhvrCommon: bhvrCommon.Common{Zidx: 95}}, bhvrRoom.InstanceData{})
 }
 
-func (obj *room01) Update() {
-	ebiten.SetWindowTitle(fmt.Sprintf("%2f %2f %d", ebiten.CurrentTPS(), ebiten.CurrentFPS(), len(gm.GetObjectDB()["obj"])))
+func (obj *roomMain) Update() {
+	// ebiten.SetWindowTitle(fmt.Sprintf("%2f %2f %d", ebiten.CurrentTPS(), ebiten.CurrentFPS(), len(gm.GetObjectDB()["obj"])))
 
 	// is ended
 	if obj.IsGameEnd {
@@ -110,9 +136,9 @@ func (obj *room01) Update() {
 						X: -math.Sin(junkAngle + junkDirAngle),
 						Y: -math.Cos(junkAngle + junkDirAngle),
 					}.Normalize().Mul(obj.JunkSpeed),
-					Scale:      r2.Point{X: 2, Y: 2},
-					Zidx:       50,
-					IsDrawMask: true,
+					Scale: r2.Point{X: 2, Y: 2},
+					Zidx:  50,
+					// IsDrawMask: true,
 				},
 				JunkType: junkJunkType,
 			},
@@ -131,7 +157,7 @@ func (obj *room01) Update() {
 	obj.Tick++
 }
 
-func (obj *room01) Draw(screen *ebiten.Image) {
+func (obj *roomMain) Draw(screen *ebiten.Image) {
 	// Color the background
 	screen.Fill(color.NRGBA{0x25, 0x20, 0x20, 0xff})
 
@@ -156,20 +182,6 @@ func (obj *room01) Draw(screen *ebiten.Image) {
 	// 		ebitenutil.DebugPrintAt(screen, fmt.Sprintf("objects[%s]: %d %+v", v, len(objs[v]), objs[v][strArr2Map[v2]]), 8, 40+(lenSum*12))
 	// 	}
 	// }
-
-	fontBocil57.LineHeight = 3
-	fontBocil57.Size = 24
-	fontBocil57.Allignment = txt.Allignment_TopLeft
-	fontBocil57.Draw(screen, fmt.Sprintf("ENERGY: %d\nBREAD: %d", obj.Energy, obj.Bread), 16, 16)
-
-	if obj.IsGameEnd {
-		fontBocil57.Size = 20
-		fontBocil57.Allignment = txt.Allignment_MiddleCenter
-		fontBocil57.Draw(screen,
-			fmt.Sprintf("THE END: YOU GOT %d BREAD\nCLICK ANYWHERE TO CONTINUE", obj.Bread),
-			CanvasWidth/2, CanvasHeight/2)
-	}
-
 }
 
 /*
@@ -248,18 +260,18 @@ func (obj *objJunk) Update() {
 		if len(touchIDs) > 0 {
 			mouseX, mouseY = ebiten.TouchPosition(touchIDs[0])
 		}
-		if obj.BhvrCommon.IsInside(r2.Point{float64(mouseX), float64(mouseY)}) {
+		if obj.BhvrCommon.IsInside(r2.Point{X: float64(mouseX), Y: float64(mouseY)}) {
 
 			// increment collected junk
-			instRoom01 := gm.MustGetObjectParent(bhvrRoom.Data(obj).Room()).(*room01)
+			instRoomMain := gm.MustGetObjectParent(bhvrRoom.Data(obj).Room()).(*roomMain)
 			if obj.JunkType == junkTypeBread {
-				instRoom01.Bread++
+				instRoomMain.Bread++
 			} else if obj.JunkType == junkTypeEnergy {
-				instRoom01.Energy += 2
+				instRoomMain.Energy += 2
 			}
 
 			// increase difficulty
-			instRoom01.JunkSpeed += 0.02
+			instRoomMain.JunkSpeed += 0.02
 
 			// delete junk
 			gm.DelObject(obj)

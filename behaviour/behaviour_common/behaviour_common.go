@@ -46,6 +46,8 @@ func (bhvr *Common) PreUpdate() {
 	// if ebiten.IsKeyPressed(ebiten.KeyS) {
 	// 	bhvr.Position.Y += 3.5
 	// }
+	// TODO: using delta time instead per tick for stability
+	// ebiten.MaxTPS()
 	bhvr.Position.X += bhvr.Speed.X
 	bhvr.Position.Y += bhvr.Speed.Y
 }
