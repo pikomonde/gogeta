@@ -7,23 +7,86 @@ import (
 var gm game
 
 type game struct {
-	objects objects // all objects in the game, indexed by "object type" -> "object interface pointer"
-	// parentObjects behaviourObjects // all objects in the game, indexed by "behvaiour interface pointer"
+	instances        instances      // all instances in the game, type "Object" is "object interface pointer"
+	behaviours       behaviours     // all behaviours in the game, type "Behaviours" is "behaviour interface pointer"
+	behavioursData   behavioursData //
 	layoutW, layoutH int
 }
 
-func GetObjectDB() objects {
-	return gm.objects
-}
+// TODO: restore this function for debugging
+// func GetObjectDB() objects {
+// 	return gm.objects
+// }
 
+// Update all Instances and BehavioursData.
 func (g *game) Update() error {
-	g.objects.update()
+	for bhvrType, bhvrInstData := range g.behavioursData.byBhvrType {
+		if _, ok := gm.behavioursData.byBhvrType[bhvrType]; ok {
+			bhvrInstData.PreUpdate()
+		}
+	}
+
+	for _, inst := range g.instances.byObjInst {
+		if _, ok := gm.instances.byObjInst[inst.ID()]; ok {
+			if inst.IsUpdate() {
+				inst.Update()
+			}
+		}
+	}
+
+	for bhvrType, bhvrInstData := range g.behavioursData.byBhvrType {
+		if _, ok := gm.behavioursData.byBhvrType[bhvrType]; ok {
+			bhvrInstData.PostUpdate()
+		}
+	}
 	return nil
 }
 
+// Draw all Instances and BehavioursData.
 func (g *game) Draw(screen *ebiten.Image) {
 	// Draw object
-	g.objects.draw(screen)
+	// objArr := make([]string, 0)
+	// objDataMap := make(map[string]ObjectData)
+	// for obj, objData := range objs[KeybyObj] {
+	// 	objStr := fmt.Sprintf("%016.10f:%p", objData.ZIdx, obj)
+	// 	// fmt.Println(objStr)
+	// 	objArr = append(objArr, objStr)
+	// 	objDataMap[objStr] = objData
+	// }
+
+	// sort.Strings(objArr)
+
+	// for _, str := range objArr {
+	// 	objData := objDataMap[str]
+	// 	drawBehaviours(objData.object, screen)
+	// 	objData.object.Draw(screen)
+	// }
+
+	// for bhvrType, bhvrInstData := range g.behavioursData.byBhvrType {
+	// 	if _, ok := gm.behavioursData.byBhvrType[bhvrType]; ok {
+	// 		bhvrInstData.Draw(screen)
+	// 	}
+	// }
+
+	// for _, inst := range g.instances.byDrawOrder {
+	// 	if _, ok := gm.instances.byObjInst[inst.ID()]; ok {
+	// 		inst.Draw(screen)
+	// 	}
+	// }
+
+	// ebitenutil.DebugPrintAt(screen, fmt.Sprintf("%+v", g.instances.zidxOrdered), 100, 100)
+	for _, zidx := range g.instances.zidxOrdered {
+		for _, instID := range g.instances.zidxInstances[zidx] {
+			if inst, ok := gm.instances.byObjInst[instID]; ok {
+				if inst.IsDraw() {
+					for _, bhvr := range GetBehavioursByObjInst()[inst] {
+						bhvr.Draw(screen)
+					}
+					inst.Draw(screen)
+				}
+			}
+		}
+	}
 }
 
 func (g *game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeight int) {
@@ -31,9 +94,22 @@ func (g *game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeigh
 }
 
 func Init(windowW, windowH, layoutW, layoutH int) error {
-	gm.objects = make(objects)
-	ebiten.SetWindowSize(windowW, windowH)
+	gm.instances.byObjInst = make(map[int]Object)
+	gm.instances.byObjType = make(map[string]map[Object]Object)
+	gm.instances.byBhvrInst = make(map[Behaviour]Object)
+	gm.instances.byBhvrType = make(map[int]map[Object]Object)
+
+	gm.instances.zidxInstances = make(map[int][]int)
+	gm.instances.zidxOrdered = make([]int, 0)
+
+	gm.behaviours.byObjInst = make(map[Object]map[int]Behaviour)
+	gm.behaviours.byBhvrInst = make(map[Behaviour]Behaviour)
+	gm.behaviours.byBhvrType = make(map[int]map[Behaviour]Behaviour)
+
+	gm.behavioursData.byBhvrType = make(map[int]BehaviourInstancesData, 0)
+
 	gm.layoutW, gm.layoutH = layoutW, layoutH
+	ebiten.SetWindowSize(windowW, windowH)
 	return nil
 }
 

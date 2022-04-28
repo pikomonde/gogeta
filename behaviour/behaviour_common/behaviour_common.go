@@ -11,15 +11,17 @@ import (
 )
 
 type Common struct {
-	Sprite       Sprite
-	Position     r2.Point // Position of the instance based on cartesian room
-	Speed        r2.Point // Speed of the instance based on cartesian room
-	Angle        float64  // Angle of the instance based on sprite anchor
-	Scale        r2.Point // Scale of the instance based on sprite anchor
-	Zidx         float64  // Depth of the instance
-	IsStopUpdate bool     // Toggle instance update or not
-	IsDrawMask   bool     // Draw instance's mask
+	gm.BehaviourData
+	Sprite     Sprite
+	Position   r2.Point // Position of the instance based on cartesian room
+	Speed      r2.Point // Speed of the instance based on cartesian room
+	Angle      float64  // Angle of the instance based on sprite anchor
+	Scale      r2.Point // Scale of the instance based on sprite anchor
+	IsDrawMask bool     // Draw instance's mask
 }
+
+func (bhvr Common) Type() int                        { return Data.ID() }
+func (bhvr *Common) Data() gm.BehaviourInstancesData { return &Data }
 
 func (bhvr *Common) PreInit() {
 	bhvr.Sprite.PreInit()
@@ -29,49 +31,11 @@ func (bhvr *Common) PostInit() {
 	bhvr.Sprite.PostInit()
 }
 
-func (bhvr *Common) PreUpdate() {
-
-	// // TODO: move this to other behaviour
-	// bhvr.Angle += 0.01
-	// // inpututil.IsKeyJustPressed
-	// if ebiten.IsKeyPressed(ebiten.KeyA) {
-	// 	bhvr.Position.X -= 3.5
-	// }
-	// if ebiten.IsKeyPressed(ebiten.KeyD) {
-	// 	bhvr.Position.X += 3.5
-	// }
-	// if ebiten.IsKeyPressed(ebiten.KeyW) {
-	// 	bhvr.Position.Y -= 3.5
-	// }
-	// if ebiten.IsKeyPressed(ebiten.KeyS) {
-	// 	bhvr.Position.Y += 3.5
-	// }
-	// TODO: using delta time instead per tick for stability
-	// ebiten.MaxTPS()
-	bhvr.Position.X += bhvr.Speed.X
-	bhvr.Position.Y += bhvr.Speed.Y
-}
-
-func (bhvr *Common) PostUpdate() {
-	objectDB := gm.GetObjectDB()
-	obj, err := gm.GetObjectParent(bhvr)
-	if err == nil {
-		objectDB.MustSetObjectData(obj, gm.ObjectData{
-			ZIdx:         bhvr.Zidx,
-			IsStopUpdate: bhvr.IsStopUpdate,
-		})
-	}
-}
-
 func (bhvr *Common) Draw(screen *ebiten.Image) {
-	// 	bhvrCommon := gm.MustGetBehaviourRel(bhvr, &Common{}).(*Common)
 	frame := bhvr.Sprite.GetCurrentFrame()
 	if frame == nil {
 		return
 	}
-	// ebitenutil.DebugPrintAt(screen, "frame", 8, 8)
-	// ebitenutil.DebugPrintAt(screen, fmt.Sprintf("animation: %s", bhvr.Sprite.CurrentAnimation), 8, 16)
-	// ebitenutil.DebugPrintAt(screen, fmt.Sprintf("frame: %d", bhvr.Sprite.CurrentFrame), 8, 24)
 
 	op := &ebiten.DrawImageOptions{}
 	op.GeoM.Translate(-frame.Anchor().X, -frame.Anchor().Y) // step A

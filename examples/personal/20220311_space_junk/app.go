@@ -47,12 +47,15 @@ func main() {
 	}
 }
 
-type ui struct{ BhvrCommon bhvrCommon.Common }
+type ui struct {
+	gm.ObjectData
+	BhvrCommon bhvrCommon.Common
+}
 
 func (obj *ui) Init()   {}
 func (obj *ui) Update() {}
 func (obj *ui) Draw(screen *ebiten.Image) {
-	instRoomMain := gm.MustGetObjectParent(bhvrRoom.Data(obj).Room()).(*roomMain)
+	instRoomMain := gm.MustGetObjectParent(bhvrRoom.Data.ByInstance(obj).Room()).(*roomMain)
 
 	fontBocil57.LineHeight = 3
 	fontBocil57.Size = 24
@@ -70,11 +73,12 @@ func (obj *ui) Draw(screen *ebiten.Image) {
 	fontBocil57.Size = 12
 	fontBocil57.Allignment = txt.Allignment_BottomLeft
 	fontBocil57.Draw(screen,
-		fmt.Sprintf("%2f %2f %d", ebiten.CurrentTPS(), ebiten.CurrentFPS(), len(gm.GetObjectDB()["obj"])),
+		fmt.Sprintf("%2f %2f %d", ebiten.CurrentTPS(), ebiten.CurrentFPS(), len(gm.GetInstancesByObjInst())),
 		16, CanvasHeight-16)
 }
 
 type roomMain struct {
+	gm.ObjectData
 	BhvrRoom  bhvrRoom.Room
 	Tick      uint64
 	SpawnRate uint64
@@ -93,8 +97,9 @@ func (obj *roomMain) Init() {
 	obj.Bread = 0
 	obj.Energy = 12
 
-	// ui
-	obj.BhvrRoom.InitObject(&ui{BhvrCommon: bhvrCommon.Common{Zidx: 95}}, bhvrRoom.InstanceData{})
+	// Zidx: 95
+	obj.BhvrRoom.InitObject(&ui{BhvrCommon: bhvrCommon.Common{}}, bhvrRoom.InstanceData{}).
+		SetZidx(95)
 }
 
 func (obj *roomMain) Update() {
@@ -124,6 +129,22 @@ func (obj *roomMain) Update() {
 		junkAngle := 2 * math.Pi * rand.Float64()
 		junkDirAngle := 0.25 * math.Pi * (rand.Float64() - 0.5)
 
+		// if ebiten.IsKeyPressed(ebiten.KeyRight) {
+		// 	for i := 0; i < 500; i++ {
+		// 		obj.BhvrRoom.InitObject(&objJunk{}, bhvrRoom.InstanceData{})
+		// 	}
+		// }
+		// if ebiten.IsKeyPressed(ebiten.KeyLeft) {
+		// 	i := 0
+		// 	for _, inst := range gm.GetInstancesByBhvrType()[bhvrCommon.Common{}.Type()] {
+		// 		gm.DelObject(inst)
+		// 		i++
+		// 		if i >= 500 {
+		// 			break
+		// 		}
+		// 	}
+		// }
+
 		// create junk instance
 		obj.BhvrRoom.InitObject(
 			&objJunk{
@@ -137,13 +158,12 @@ func (obj *roomMain) Update() {
 						Y: -math.Cos(junkAngle + junkDirAngle),
 					}.Normalize().Mul(obj.JunkSpeed),
 					Scale: r2.Point{X: 2, Y: 2},
-					Zidx:  50,
 					// IsDrawMask: true,
 				},
 				JunkType: junkJunkType,
 			},
 			bhvrRoom.InstanceData{},
-		)
+		).SetZidx(50)
 		obj.Energy--
 	}
 
@@ -161,8 +181,28 @@ func (obj *roomMain) Draw(screen *ebiten.Image) {
 	// Color the background
 	screen.Fill(color.NRGBA{0x25, 0x20, 0x20, 0xff})
 
+	// 	msg := fmt.Sprintf(`TPS: %0.2f
+	// FPS: %0.2f
+	// Num of sprites: %d (%d)
+	// Press <- or -> to change the number of sprites`,
+	// 		ebiten.CurrentTPS(), ebiten.CurrentFPS(), len(gm.GetInstancesByObjInst()))))
+	// 	ebitenutil.DebugPrint(screen, msg)
+
+	// 	ebitenutil.DebugPrintAt(screen, fmt.Sprintf("%d %d %d\n%d %d %d",
+	// 		(&bhvrCommon.Common{}).Data().GetID(),
+	// 		bhvrCommon.Common{}.Type(),
+	// 		len(gm.GetBehavioursByBhvrType()[bhvrCommon.Common{}.Type()]),
+	// 		(&bhvrRoom.Room{}).Data().GetID(),
+	// 		bhvrRoom.Room{}.Type(),
+	// 		len(gm.GetBehavioursByBhvrType()[bhvrRoom.Room{}.Type()]),
+	// 	), 100, 200)
+
 	// // TODO: add to util
-	// objs := gm.GetObjectDB()
+	// objsObj := gm.GetBehavioursByObjInst()
+	// objs := make(map[string]map[int]gm.Behaviour)
+	// for k, v := range objsObj {
+	// 	objs[fmt.Sprintf("%p", k)] = v
+	// }
 	// strArr := make([]string, 0)
 	// for k, _ := range objs {
 	// 	strArr = append(strArr, k)
@@ -170,18 +210,17 @@ func (obj *roomMain) Draw(screen *ebiten.Image) {
 	// sort.Strings(strArr)
 	// lenSum := 0
 	// for _, v := range strArr {
-	// 	strArr2 := make([]string, 0)
-	// 	strArr2Map := make(map[string]gm.Object)
+	// 	strArr2 := make([]int, 0)
 	// 	for k, _ := range objs[v] {
-	// 		strArr2 = append(strArr2, fmt.Sprintf("%p", k))
-	// 		strArr2Map[fmt.Sprintf("%p", k)] = k
+	// 		strArr2 = append(strArr2, k)
 	// 	}
-	// 	sort.Strings(strArr2)
+	// 	sort.Ints(strArr2)
 	// 	for _, v2 := range strArr2 {
 	// 		lenSum++
-	// 		ebitenutil.DebugPrintAt(screen, fmt.Sprintf("objects[%s]: %d %+v", v, len(objs[v]), objs[v][strArr2Map[v2]]), 8, 40+(lenSum*12))
+	// 		ebitenutil.DebugPrintAt(screen, fmt.Sprintf("objects[%s]: %d %+v", v, len(objs[v]), objs[v][v2]), 8, 40+(lenSum*12))
 	// 	}
 	// }
+
 }
 
 /*
@@ -215,6 +254,7 @@ const (
 )
 
 type objJunk struct {
+	gm.ObjectData
 	BhvrCommon bhvrCommon.Common
 	Tick       uint64
 	JunkType   junkType
@@ -227,6 +267,8 @@ func (obj *objJunk) Init() {
 		obj.BhvrCommon.Sprite.CurrentAnimation = "junk_energy"
 	case junkTypeBread:
 		obj.BhvrCommon.Sprite.CurrentAnimation = "junk_bread"
+	default:
+		obj.BhvrCommon.Sprite.CurrentAnimation = "junk_ball"
 	}
 	obj.BhvrCommon.Sprite.CurrentFrame = rand.Intn(len(*objJunkAnimation[obj.BhvrCommon.Sprite.CurrentAnimation]))
 
@@ -243,7 +285,7 @@ func (obj *objJunk) Update() {
 
 	// activate out-of-room destroy instance, once inside the room
 	if !bhvrRoom.IsOutside(obj) {
-		bhvrRoom.Data(obj).IsDeleteWhenOutside = true
+		bhvrRoom.Data.ByInstance(obj).IsDeleteWhenOutside = true
 	}
 
 	// slow down
@@ -263,7 +305,7 @@ func (obj *objJunk) Update() {
 		if obj.BhvrCommon.IsInside(r2.Point{X: float64(mouseX), Y: float64(mouseY)}) {
 
 			// increment collected junk
-			instRoomMain := gm.MustGetObjectParent(bhvrRoom.Data(obj).Room()).(*roomMain)
+			instRoomMain := gm.MustGetObjectParent(bhvrRoom.Data.ByInstance(obj).Room()).(*roomMain)
 			if obj.JunkType == junkTypeBread {
 				instRoomMain.Bread++
 			} else if obj.JunkType == junkTypeEnergy {
