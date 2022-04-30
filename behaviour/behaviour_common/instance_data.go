@@ -4,7 +4,7 @@ import (
 	"github.com/pikomonde/gogeta/gm"
 )
 
-var Data BehaviourInstancesData
+var Data CommonsData
 
 func init() {
 	Data.instancesData = make(map[gm.Object]*InstanceData)
@@ -12,35 +12,25 @@ func init() {
 
 // === instances data ===
 
-type BehaviourInstancesData struct {
-	gm.BehaviourInstancesDataData
+type CommonsData struct {
+	gm.Instancer
 	instancesData map[gm.Object]*InstanceData
 }
 
-func (data *BehaviourInstancesData) TypeString() string { return "Common" }
+func (data *CommonsData) Behaviour() gm.Behaviour                 { return &Common{} }
+func (data *CommonsData) ByInstance(indt gm.Object) *InstanceData { return data.instancesData[indt] }
+func (data *CommonsData) DelInstance(indt gm.Object)              { delete(data.instancesData, indt) }
 
-func (data *BehaviourInstancesData) ByInstance(instance gm.Object) *InstanceData {
-	return data.instancesData[instance]
-}
-
-func (data *BehaviourInstancesData) DelInstance(instance gm.Object) {
-	delete(data.instancesData, instance)
-}
-
-func (data *BehaviourInstancesData) PreUpdate() {
-	for _, inst := range gm.GetInstancesByBhvrType()[Common{}.Type()] {
+func (data *CommonsData) PreUpdate() {
+	for _, bhvrInstID := range gm.GetBhvrIDsByBhvrTypeID(gm.TypeID(&Common{})) {
+		instID := gm.GetInstIDByBhvrInstID(bhvrInstID)
+		inst := gm.GetInstByObjInstID(instID)
 		if !inst.IsUpdate() {
 			continue
 		}
-
-		bhvrCommonRaw, ok := gm.GetBehavioursByObjInst()[inst][Common{}.Type()]
-		if !ok {
-			continue
-		}
-
-		bhvrCommonInst := bhvrCommonRaw.(*Common)
-		// TODO: using delta time instead per tick for stability
-		// ebiten.MaxTPS()
+		bhvrCommonInst := gm.GetBhvrByBhvrInstID(bhvrInstID).(*Common)
+		// // TODO: using delta time instead per tick for stability
+		// // ebiten.MaxTPS()
 		bhvrCommonInst.Position.X += bhvrCommonInst.Speed.X
 		bhvrCommonInst.Position.Y += bhvrCommonInst.Speed.Y
 	}
@@ -61,7 +51,7 @@ func (data *BehaviourInstancesData) PreUpdate() {
 	// }
 }
 
-func (data *BehaviourInstancesData) PostUpdate() {
+func (data *CommonsData) PostUpdate() {
 
 }
 

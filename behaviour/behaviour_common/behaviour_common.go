@@ -11,7 +11,7 @@ import (
 )
 
 type Common struct {
-	gm.BehaviourData
+	gm.Instancer
 	Sprite     Sprite
 	Position   r2.Point // Position of the instance based on cartesian room
 	Speed      r2.Point // Speed of the instance based on cartesian room
@@ -20,8 +20,7 @@ type Common struct {
 	IsDrawMask bool     // Draw instance's mask
 }
 
-func (bhvr Common) Type() int                        { return Data.ID() }
-func (bhvr *Common) Data() gm.BehaviourInstancesData { return &Data }
+func (bhvr *Common) Data() gm.BehavioursData { return &Data }
 
 func (bhvr *Common) PreInit() {
 	bhvr.Sprite.PreInit()

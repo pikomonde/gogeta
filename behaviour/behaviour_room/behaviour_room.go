@@ -12,14 +12,13 @@ import (
 )
 
 type Room struct {
-	gm.BehaviourData
+	gm.Instancer
 	Position  r2.Point
 	Size      r2.Point
 	instances map[gm.Object]gm.Object
 }
 
-func (bhvr Room) Type() int                        { return Data.ID() }
-func (bhvr *Room) Data() gm.BehaviourInstancesData { return &Data }
+func (bhvr *Room) Data() gm.BehavioursData { return &Data }
 
 func (bhvr *Room) PreInit() {
 	bhvr.instances = make(map[gm.Object]gm.Object)
@@ -52,14 +51,15 @@ func (bhvr *Room) window() r2.Rect {
 // InitObject register current instance to this room. It is also register to gm
 // through gm.InitObject().
 func (bhvr *Room) InitObject(instance gm.Object, data InstanceData) gm.Object {
-	if _, ok := Data.instancesData[instance]; ok {
+	if _, ok := Data.instancesData[gm.ID(instance)]; ok {
 		instance := gm.MustGetObjectParent(bhvr)
 		instanceName := reflect.TypeOf(instance).String()
 		log.Panicf("This instance is already assigned to room %s", instanceName)
 	}
 	initObj := gm.InitObject(instance)
 	bhvr.instances[initObj] = initObj
-	Data.instancesData[instance] = &InstanceData{
+	Data.instancesData[gm.ID(instance)] = &InstanceData{
+		roomInstance:        gm.MustGetObjectParent(bhvr),
 		room:                bhvr,
 		IsDeleteWhenOutside: data.IsDeleteWhenOutside,
 	}
@@ -89,8 +89,8 @@ func (bhvr *Room) Pause() {
 // === Package functions ===
 
 func IsOutside(instance gm.Object) bool {
-	instCommon := gm.MustGetBehaviour(instance, Room{}.Type(), bhvrCommon.Common{}.Type()).(*bhvrCommon.Common)
-	roomWindow := Data.instancesData[instance].room.window()
+	instCommon := gm.MustGetBehaviour(instance, gm.TypeID(&Room{}), gm.TypeID(&bhvrCommon.Common{})).(*bhvrCommon.Common)
+	roomWindow := Data.instancesData[gm.ID(instance)].room.window()
 	maskOuterRect := instCommon.TrasnformedMask().OuterRectangle()
 	return !roomWindow.ContainsPoint(maskOuterRect.Lo()) && !roomWindow.ContainsPoint(maskOuterRect.Hi())
 }

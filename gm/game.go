@@ -1,6 +1,8 @@
 package gm
 
 import (
+	"fmt"
+
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
@@ -18,69 +20,75 @@ type game struct {
 // 	return gm.objects
 // }
 
+func Println() string {
+	return fmt.Sprintf(`> %2f %2f %d
+instances.unused:        %+v
+instances.all:           %+v
+instances.allTypes:      %+v
+instances.byObjInst:     %+v
+instances.byObjType:     %+v
+instances.byBhvrInst:    %+v
+instances.byBhvrType:    %+v
+instances.zidxOrdered:   %+v
+instances.zidxInstances: %+v
+behaviours.unused:       %+v
+behaviours.all:          %+v
+behaviours.allTypes:     %+v
+behaviours.byBhvrInst:   %+v
+behaviours.byBhvrType:   %+v
+behaviours.byObjInst:    %+v
+behavioursData.byBhvrType:  %+v`,
+		ebiten.CurrentTPS(), ebiten.CurrentFPS(), len(GetInstIDs()),
+		gm.instances.unused,
+		gm.instances.all,
+		gm.instances.allTypes,
+		gm.instances.byObjInst,
+		gm.instances.byObjType,
+		gm.instances.byBhvrInst,
+		gm.instances.byBhvrType,
+		gm.instances.zidxOrdered,
+		gm.instances.zidxInstances,
+		gm.behaviours.unused,
+		gm.behaviours.all,
+		gm.behaviours.allTypes,
+		gm.behaviours.byBhvrInst,
+		gm.behaviours.byBhvrType,
+		gm.behaviours.byObjInst,
+		gm.behavioursData.byBhvrType,
+	)
+}
+
 // Update all Instances and BehavioursData.
 func (g *game) Update() error {
-	for bhvrType, bhvrInstData := range g.behavioursData.byBhvrType {
-		if _, ok := gm.behavioursData.byBhvrType[bhvrType]; ok {
-			bhvrInstData.PreUpdate()
-		}
+	for _, bhvrInstData := range GetBhvrDatas() {
+		bhvrInstData.PreUpdate()
 	}
 
-	for _, inst := range g.instances.byObjInst {
-		if _, ok := gm.instances.byObjInst[inst.ID()]; ok {
+	for _, objInstID := range GetInstIDs() {
+		if inst := GetInstByObjInstID(objInstID); inst != nil {
 			if inst.IsUpdate() {
 				inst.Update()
 			}
 		}
 	}
 
-	for bhvrType, bhvrInstData := range g.behavioursData.byBhvrType {
-		if _, ok := gm.behavioursData.byBhvrType[bhvrType]; ok {
-			bhvrInstData.PostUpdate()
-		}
+	for _, bhvrInstData := range GetBhvrDatas() {
+		bhvrInstData.PostUpdate()
 	}
+
 	return nil
 }
 
 // Draw all Instances and BehavioursData.
 func (g *game) Draw(screen *ebiten.Image) {
-	// Draw object
-	// objArr := make([]string, 0)
-	// objDataMap := make(map[string]ObjectData)
-	// for obj, objData := range objs[KeybyObj] {
-	// 	objStr := fmt.Sprintf("%016.10f:%p", objData.ZIdx, obj)
-	// 	// fmt.Println(objStr)
-	// 	objArr = append(objArr, objStr)
-	// 	objDataMap[objStr] = objData
-	// }
 
-	// sort.Strings(objArr)
-
-	// for _, str := range objArr {
-	// 	objData := objDataMap[str]
-	// 	drawBehaviours(objData.object, screen)
-	// 	objData.object.Draw(screen)
-	// }
-
-	// for bhvrType, bhvrInstData := range g.behavioursData.byBhvrType {
-	// 	if _, ok := gm.behavioursData.byBhvrType[bhvrType]; ok {
-	// 		bhvrInstData.Draw(screen)
-	// 	}
-	// }
-
-	// for _, inst := range g.instances.byDrawOrder {
-	// 	if _, ok := gm.instances.byObjInst[inst.ID()]; ok {
-	// 		inst.Draw(screen)
-	// 	}
-	// }
-
-	// ebitenutil.DebugPrintAt(screen, fmt.Sprintf("%+v", g.instances.zidxOrdered), 100, 100)
+	// ebitenutil.DebugPrintAt(screen, Println(), 20, 100)
 	for _, zidx := range g.instances.zidxOrdered {
 		for _, instID := range g.instances.zidxInstances[zidx] {
-			if inst, ok := gm.instances.byObjInst[instID]; ok {
+			if inst := GetInstByObjInstID(instID); inst != nil {
 				if inst.IsDraw() {
-					for _, bhvr := range GetBehavioursByObjInst()[inst] {
-						bhvr.Draw(screen)
+					for _, bhvrInstID := range GetBhvrIDsByObjInstID(instID) {
+						GetBhvrByBhvrInstID(bhvrInstID).Draw(screen)
 					}
 					inst.Draw(screen)
 				}
@@ -94,19 +102,25 @@ func (g *game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeigh
 }
 
 func Init(windowW, windowH, layoutW, layoutH int) error {
-	gm.instances.byObjInst = make(map[int]Object)
-	gm.instances.byObjType = make(map[string]map[Object]Object)
-	gm.instances.byBhvrInst = make(map[Behaviour]Object)
-	gm.instances.byBhvrType = make(map[int]map[Object]Object)
+	gm.instances.unused = make([]int, 0)
+	gm.instances.all = make([]int, 0)
+	gm.instances.allTypes = []string{""}
+	gm.instances.byObjInst = []Object{nil}
+	gm.instances.byObjType = [][]int{nil}
+	gm.instances.byBhvrInst = []int{0}
+	gm.instances.byBhvrType = [][]int{nil}
 
 	gm.instances.zidxInstances = make(map[int][]int)
 	gm.instances.zidxOrdered = make([]int, 0)
 
-	gm.behaviours.byObjInst = make(map[Object]map[int]Behaviour)
-	gm.behaviours.byBhvrInst = make(map[Behaviour]Behaviour)
-	gm.behaviours.byBhvrType = make(map[int]map[Behaviour]Behaviour)
+	gm.behaviours.unused = make([]int, 0)
+	gm.behaviours.all = make([]int, 0)
+	gm.behaviours.allTypes = []string{""}
+	gm.behaviours.byBhvrInst = []Behaviour{nil}
+	gm.behaviours.byObjInst = [][]int{nil}
+	gm.behaviours.byBhvrType = [][]int{nil}
 
-	gm.behavioursData.byBhvrType = make(map[int]BehaviourInstancesData, 0)
+	gm.behavioursData.byBhvrType = []BehavioursData{nil}
 
 	gm.layoutW, gm.layoutH = layoutW, layoutH
 	ebiten.SetWindowSize(windowW, windowH)

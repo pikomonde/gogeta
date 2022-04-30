@@ -48,14 +48,13 @@ func main() {
 }
 
 type ui struct {
-	gm.ObjectData
-	BhvrCommon bhvrCommon.Common
+	gm.Objecter
 }
 
 func (obj *ui) Init()   {}
 func (obj *ui) Update() {}
 func (obj *ui) Draw(screen *ebiten.Image) {
-	instRoomMain := gm.MustGetObjectParent(bhvrRoom.Data.ByInstance(obj).Room()).(*roomMain)
+	instRoomMain := gm.MustGetObjectParent(bhvrRoom.Data.ByInstance(gm.ID(obj)).Room()).(*roomMain)
 
 	fontBocil57.LineHeight = 3
 	fontBocil57.Size = 24
@@ -73,12 +72,12 @@ func (obj *ui) Draw(screen *ebiten.Image) {
 	fontBocil57.Size = 12
 	fontBocil57.Allignment = txt.Allignment_BottomLeft
 	fontBocil57.Draw(screen,
-		fmt.Sprintf("%2f %2f %d", ebiten.CurrentTPS(), ebiten.CurrentFPS(), len(gm.GetInstancesByObjInst())),
+		fmt.Sprintf("%2f %2f %d", ebiten.CurrentTPS(), ebiten.CurrentFPS(), len(gm.GetInstIDs())),
 		16, CanvasHeight-16)
 }
 
 type roomMain struct {
-	gm.ObjectData
+	gm.Objecter
 	BhvrRoom  bhvrRoom.Room
 	Tick      uint64
 	SpawnRate uint64
@@ -86,24 +85,27 @@ type roomMain struct {
 	Bread     int64
 	Energy    int64
 	IsGameEnd bool
+	TouchIDs  []ebiten.TouchID
 }
 
 func (obj *roomMain) Init() {
 	rand.Seed(time.Now().UnixNano())
 	obj.BhvrRoom.Size = r2.Point{X: CanvasWidth, Y: CanvasHeight}
 	obj.Tick = 0
-	obj.SpawnRate = 60
+	obj.SpawnRate = 1
 	obj.JunkSpeed = 1.4
 	obj.Bread = 0
-	obj.Energy = 12
+	obj.Energy = 12000
 
 	// Zidx: 95
-	obj.BhvrRoom.InitObject(&ui{BhvrCommon: bhvrCommon.Common{}}, bhvrRoom.InstanceData{}).
-		SetZidx(95)
+	obj.BhvrRoom.InitObject(&ui{}, bhvrRoom.InstanceData{}).SetZidx(95)
 }
 
 func (obj *roomMain) Update() {
 	// ebiten.SetWindowTitle(fmt.Sprintf("%2f %2f %d", ebiten.CurrentTPS(), ebiten.CurrentFPS(), len(gm.GetObjectDB()["obj"])))
+
+	// move this to other object call control
+	obj.TouchIDs = inpututil.AppendJustPressedTouchIDs([]ebiten.TouchID{})
 
 	// is ended
 	if obj.IsGameEnd {
@@ -134,36 +136,40 @@ func (obj *roomMain) Update() {
 		// 		obj.BhvrRoom.InitObject(&objJunk{}, bhvrRoom.InstanceData{})
 		// 	}
 		// }
-		// if ebiten.IsKeyPressed(ebiten.KeyLeft) {
-		// 	i := 0
-		// 	for _, inst := range gm.GetInstancesByBhvrType()[bhvrCommon.Common{}.Type()] {
-		// 		gm.DelObject(inst)
-		// 		i++
-		// 		if i >= 500 {
-		// 			break
-		// 		}
-		// 	}
-		// }
+		if ebiten.IsKeyPressed(ebiten.KeyLeft) {
+			i := 0
+			for _, instID := range gm.GetInstIDsByObjTypeID(objJunkTypeID) {
+				gm.DelObject(gm.GetInstByObjInstID(instID))
+				i++
+				if i >= 500 {
+					break
+				}
+			}
+		}
 
 		// create junk instance
-		obj.BhvrRoom.InitObject(
-			&objJunk{
-				BhvrCommon: bhvrCommon.Common{
-					Position: r2.Point{
-						X: float64(CanvasWidth)/2 + junkDistance*math.Sin(junkAngle),
-						Y: float64(CanvasHeight)/2 + junkDistance*math.Cos(junkAngle),
+		if ebiten.IsKeyPressed(ebiten.KeyRight) {
+			for i := 0; i < 500; i++ {
+				obj.BhvrRoom.InitObject(
+					&objJunk{
+						BhvrCommon: bhvrCommon.Common{
+							Position: r2.Point{
+								X: float64(CanvasWidth)/2 + junkDistance*math.Sin(junkAngle),
+								Y: float64(CanvasHeight)/2 + junkDistance*math.Cos(junkAngle),
+							},
+							Speed: r2.Point{
+								X: -math.Sin(junkAngle + junkDirAngle),
+								Y: -math.Cos(junkAngle + junkDirAngle),
+							}.Normalize().Mul(obj.JunkSpeed),
+							Scale: r2.Point{X: 2, Y: 2},
+							// IsDrawMask: true,
+						},
+						JunkType: junkJunkType,
 					},
-					Speed: r2.Point{
-						X: -math.Sin(junkAngle + junkDirAngle),
-						Y: -math.Cos(junkAngle + junkDirAngle),
-					}.Normalize().Mul(obj.JunkSpeed),
-					Scale: r2.Point{X: 2, Y: 2},
-					// IsDrawMask: true,
-				},
-				JunkType: junkJunkType,
-			},
-			bhvrRoom.InstanceData{},
-		).SetZidx(50)
+					bhvrRoom.InstanceData{},
+				).SetZidx(50)
+			}
+		}
 		obj.Energy--
 	}
 
@@ -253,8 +259,11 @@ const (
 	junkTypeBread
 )
 
+var objJunkType string = gm.Type(&objJunk{})
+var objJunkTypeID int = gm.TypeID(&objJunk{})
+
 type objJunk struct {
-	gm.ObjectData
+	gm.Objecter
 	BhvrCommon bhvrCommon.Common
 	Tick       uint64
 	JunkType   junkType
@@ -284,9 +293,10 @@ func (obj *objJunk) Update() {
 	obj.BhvrCommon.Angle += 0.01
 
 	// activate out-of-room destroy instance, once inside the room
-	if !bhvrRoom.IsOutside(obj) {
-		bhvrRoom.Data.ByInstance(obj).IsDeleteWhenOutside = true
-	}
+	// TODO: this is expensive
+	// if !bhvrRoom.IsOutside(obj) {
+	// 	bhvrRoom.Data.ByInstance(gm.ID(obj)).IsDeleteWhenOutside = true
+	// }
 
 	// slow down
 	if obj.Tick > 200 {
@@ -295,9 +305,14 @@ func (obj *objJunk) Update() {
 		}
 	}
 
+	// TODO: this function is actually expensive, because ther are 10000 instance calling this function,
+	// and inside this function, it is querying in a map of 10000 instance
+	// _ = bhvrRoom.Data.ByInstance(obj.ID())
 	// when object is clicked
-	touchIDs := inpututil.AppendJustPressedTouchIDs([]ebiten.TouchID{})
-	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) || (len(touchIDs) > 0) {
+	// touchIDs := bhvrRoom.Data.ByInstance(gm.ID(obj)).Parent().(*roomMain).TouchIDs
+	touchIDs := []ebiten.TouchID{}
+	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) ||
+		len(touchIDs) > 0 {
 		mouseX, mouseY := ebiten.CursorPosition()
 		if len(touchIDs) > 0 {
 			mouseX, mouseY = ebiten.TouchPosition(touchIDs[0])
@@ -305,7 +320,7 @@ func (obj *objJunk) Update() {
 		if obj.BhvrCommon.IsInside(r2.Point{X: float64(mouseX), Y: float64(mouseY)}) {
 
 			// increment collected junk
-			instRoomMain := gm.MustGetObjectParent(bhvrRoom.Data.ByInstance(obj).Room()).(*roomMain)
+			instRoomMain := gm.MustGetObjectParent(bhvrRoom.Data.ByInstance(gm.ID(obj)).Room()).(*roomMain)
 			if obj.JunkType == junkTypeBread {
 				instRoomMain.Bread++
 			} else if obj.JunkType == junkTypeEnergy {

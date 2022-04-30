@@ -8,9 +8,8 @@ import (
 
 // TODO: Consider different interface between Behaviour and Object
 type Behaviour interface {
-	IDerInterface
-	Type() int
-	Data() BehaviourInstancesData
+	Instance
+	Data() BehavioursData
 	PreInit()
 	PostInit()
 	// PreUpdate()
@@ -18,22 +17,13 @@ type Behaviour interface {
 	Draw(*ebiten.Image)
 }
 
-type BehaviourData struct {
-	IDer
-}
-
-type BehaviourInstancesData interface {
-	IDerInterface
-	TypeString() string
+type BehavioursData interface {
+	Instance
+	Behaviour() Behaviour
 	// ByInstance(Object) interface{}
 	DelInstance(Object)
 	PreUpdate()
 	PostUpdate()
-	// Draw(*ebiten.Image)
-}
-
-type BehaviourInstancesDataData struct {
-	IDer
 }
 
 // type behaviourData struct {
@@ -81,38 +71,22 @@ type BehaviourInstancesDataData struct {
 
 // Get relative's Behaviour by type. Must return, panic if not found.
 func MustGetBehaviourRel(bhvrThis Behaviour, bhvrType int) Behaviour {
-	return MustGetBehaviour(MustGetObjectParent(bhvrThis), bhvrThis.Type(), bhvrType)
+	return MustGetBehaviour(MustGetObjectParent(bhvrThis), bhvrThis.getTypeID(), bhvrType)
 }
 
 // Get Behaviour by type. Must return, panic if not found.
-func MustGetBehaviour(instThis Object, bhvrThisType int, bhvrType int) Behaviour {
-	bhvrByInst, ok := gm.behaviours.byObjInst[instThis]
-	if !ok {
-		log.Panicf("[MustGetBehaviour] Behaviour %s is not found in Object %T. It is required by Behaviour %s.", GetBehavioursDataByBhvrType()[bhvrType].TypeString(), instThis, GetBehavioursDataByBhvrType()[bhvrThisType].TypeString())
+func MustGetBehaviour(instThis Object, bhvrThisTypeID int, bhvrTypeID int) Behaviour {
+	for _, bhvrID := range GetBhvrIDsByObjInstID(instThis.getID()) {
+		if GetBhvrByBhvrInstID(bhvrID).getTypeID() == bhvrTypeID {
+			return GetBhvrByBhvrInstID(bhvrID)
+		}
 	}
-
-	bhvrInst, ok := bhvrByInst[bhvrType]
-	if !ok {
-		log.Panicf("[MustGetBehaviour] Behaviour %s is not found in Object %T. It is required by Behaviour %s.", GetBehavioursDataByBhvrType()[bhvrType].TypeString(), instThis, GetBehavioursDataByBhvrType()[bhvrThisType].TypeString())
-	}
-
-	return bhvrInst
+	log.Panicf("[MustGetBehaviour] Behaviour %T is not found in Object %T. It is required by Behaviour %T.",
+		GetBhvrDataByBhvrTypeID(bhvrTypeID), instThis, GetBhvrDataByBhvrTypeID(bhvrThisTypeID))
+	return nil
 }
 
 // Get behaviour's parent. Must return, panic if not found.
 func MustGetObjectParent(bhvrThis Behaviour) Object {
-	inst, ok := gm.instances.byBhvrInst[bhvrThis]
-	if !ok {
-		log.Panicf("[MustGetObjectParent] Behaviour %T is not have a parent.", bhvrThis)
-	}
-	return inst
-}
-
-// Get behaviour's parent. Must return, panic if not found.
-func MustGetBehavioursByType(bhvrType int) map[Object]Object {
-	insts, ok := gm.instances.byBhvrType[bhvrType]
-	if !ok {
-		log.Panicf("[MustGetObjectParent] Behaviour %s is not exist.", GetBehavioursDataByBhvrType()[bhvrType].TypeString())
-	}
-	return insts
+	return GetInstByObjInstID(GetInstIDByBhvrInstID(bhvrThis.getID()))
 }

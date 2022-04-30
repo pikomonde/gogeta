@@ -9,7 +9,7 @@ import (
 
 // TODO: Consider different interface between Behaviour and Object
 type Object interface {
-	IDerInterface
+	Instance
 	Zidx() int
 	SetZidx(int)
 	setZidx(int)
@@ -23,20 +23,20 @@ type Object interface {
 	Draw(*ebiten.Image)
 }
 
-type ObjectData struct {
-	IDer
+type Objecter struct {
+	Instancer
 	zidx        int
 	isNotUpdate bool
 	isNotDraw   bool
 }
 
-func (inst *ObjectData) Zidx() int          { return inst.zidx }
-func (inst *ObjectData) SetZidx(d int)      { UpdateInstancesZidx(GetInstancesByObjInst()[inst.id], d) }
-func (inst *ObjectData) setZidx(d int)      { inst.zidx = d }
-func (inst *ObjectData) IsUpdate() bool     { return !inst.isNotUpdate }
-func (inst *ObjectData) SetIsUpdate(d bool) { inst.isNotUpdate = !d }
-func (inst *ObjectData) IsDraw() bool       { return !inst.isNotDraw }
-func (inst *ObjectData) SetIsDraw(d bool)   { inst.isNotDraw = !d }
+func (inst *Objecter) Zidx() int          { return inst.zidx }
+func (inst *Objecter) SetZidx(d int)      { updateInstZidx(GetInstByObjInstID(inst.id), d) }
+func (inst *Objecter) setZidx(d int)      { inst.zidx = d }
+func (inst *Objecter) IsUpdate() bool     { return !inst.isNotUpdate }
+func (inst *Objecter) SetIsUpdate(d bool) { inst.isNotUpdate = !d }
+func (inst *Objecter) IsDraw() bool       { return !inst.isNotDraw }
+func (inst *Objecter) SetIsDraw(d bool)   { inst.isNotDraw = !d }
 
 // Set an Instance to Game and initialize it.
 func InitObject(inst Object) Object {
@@ -137,7 +137,7 @@ func delBehaviours(obj Object) {
 }
 
 func delInstanceDataOnBehaviour(obj Object) {
-	for _, bhvrsData := range gm.behavioursData.byBhvrType {
+	for _, bhvrsData := range GetBhvrDatas() {
 		bhvrsData.DelInstance(obj)
 	}
 }

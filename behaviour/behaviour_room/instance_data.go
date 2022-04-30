@@ -1,50 +1,48 @@
 package behaviour_room
 
 import (
-	bhvrCommon "github.com/pikomonde/gogeta/behaviour/behaviour_common"
 	"github.com/pikomonde/gogeta/gm"
 )
 
-var Data BehaviourInstancesData
+var Data RoomsData
 
 func init() {
-	Data.instancesData = make(map[gm.Object]*InstanceData)
+	// TODO: map like this is actually expensive
+	Data.instancesData = make(map[int]*InstanceData)
 }
 
 // === instances data ===
 
-type BehaviourInstancesData struct {
-	gm.BehaviourInstancesDataData
-	instancesData map[gm.Object]*InstanceData
+type RoomsData struct {
+	gm.Instancer
+	instancesData map[int]*InstanceData
 }
 
-func (data *BehaviourInstancesData) TypeString() string { return "Room" }
+func (data *RoomsData) Behaviour() gm.Behaviour             { return &Room{} }
+func (data *RoomsData) ByInstance(instID int) *InstanceData { return data.instancesData[instID] }
 
-func (data *BehaviourInstancesData) ByInstance(instance gm.Object) *InstanceData {
-	return data.instancesData[instance]
-}
-
-func (data *BehaviourInstancesData) DelInstance(instance gm.Object) {
-	bhvrRoomInst := data.ByInstance(instance).Room()
+func (data *RoomsData) DelInstance(instance gm.Object) {
+	bhvrRoomInst := data.ByInstance(gm.ID(instance)).Room()
 	delete(bhvrRoomInst.instances, instance)
-	delete(data.instancesData, instance)
+	delete(data.instancesData, gm.ID(instance))
 }
 
-func (data *BehaviourInstancesData) PreUpdate() {
+func (data *RoomsData) PreUpdate() {
 	// TODO: should filter with room active?
-	for instance, instanceData := range Data.instancesData {
-		if instanceData.IsDeleteWhenOutside {
-			instCommon := gm.MustGetBehaviour(instance, Room{}.Type(), bhvrCommon.Common{}.Type()).(*bhvrCommon.Common)
-			maskOuterRect := instCommon.TrasnformedMask().OuterRectangle()
-			bhvrRoomInst := instanceData.Room()
-			if !bhvrRoomInst.window().ContainsPoint(maskOuterRect.Lo()) && !bhvrRoomInst.window().ContainsPoint(maskOuterRect.Hi()) {
-				gm.DelObject(instance)
-			}
-		}
-	}
+	// TODO: this is expensive
+	// for instance, instanceData := range Data.instancesData {
+	// 	if instanceData.IsDeleteWhenOutside {
+	// 		instCommon := gm.MustGetBehaviour(instance, Room{}.Type(), bhvrCommon.Common{}.Type()).(*bhvrCommon.Common)
+	// 		maskOuterRect := instCommon.TrasnformedMask().OuterRectangle()
+	// 		bhvrRoomInst := instanceData.Room()
+	// 		if !bhvrRoomInst.window().ContainsPoint(maskOuterRect.Lo()) && !bhvrRoomInst.window().ContainsPoint(maskOuterRect.Hi()) {
+	// 			gm.DelObject(instance)
+	// 		}
+	// 	}
+	// }
 }
 
-func (data *BehaviourInstancesData) PostUpdate() {
+func (data *RoomsData) PostUpdate() {
 
 }
 
@@ -66,8 +64,12 @@ func (data *BehaviourInstancesData) PostUpdate() {
 // to put this on the game package (as map[string]?), but again this is will prevent the ide for autocomplete.
 // I think it's better to put in this instance data model for now.
 type InstanceData struct {
+	roomInstance        gm.Object
 	room                *Room
 	IsDeleteWhenOutside bool
 }
 
-func (data *InstanceData) Room() *Room { return data.room }
+func (data *InstanceData) Room() *Room       { return data.room }
+func (data *InstanceData) Parent() gm.Object { return data.roomInstance }
+
+// func (data *InstanceData) Parent() gm.Object { return gm.GetInstancesByBhvrInst()[data.room] }

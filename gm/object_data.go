@@ -2,7 +2,13 @@ package gm
 
 import (
 	"reflect"
-	"sort"
+
+	"github.com/pikomonde/gogeta/gogetautil"
+)
+
+const (
+	maxObjInstID  = 100000 // TODO: should we enforce it?
+	maxBhvrTypeID = 50     // TODO: should we enforce it?
 )
 
 // It turns out that map[string] is more expensive than map[int] and map[interface{}]. Theoretically,
@@ -10,26 +16,29 @@ import (
 // because it might apply hashing. So it is preferable to use map[int] instead.
 // https://stackoverflow.com/questions/29677670/what-is-the-big-o-performance-of-maps-in-golang
 type instances struct {
-	lastObjInst int
-	byObjInst   map[int]Object
-	byObjType   map[string]map[Object]Object // TODO: find away to change this map[string] to map[int]
-	byBhvrInst  map[Behaviour]Object
-	byBhvrType  map[int]map[Object]Object
+	unused     []int    // []objInstID, up to 0.8 mb
+	all        []int    // []objInstID, up to 0.8 mb
+	allTypes   []string // [objTypeID]objType, up to 0.8 mb, undeletable, starts from 1
+	byObjInst  []Object // [objInstID]Object, up to 0.8 mb, starts from 1
+	byObjType  [][]int  // [objTypeID][]objInstID, up to 0.8 mb, starts from 1
+	byBhvrInst []int    // [bhvrInstID]objInstID, up to 40 mb, starts from 1
+	byBhvrType [][]int  // [bhvrTypeID][]objInstID, up to 40 mb, starts from 1
 
 	zidxOrdered   []int         // []zidx                 (sorted)
 	zidxInstances map[int][]int // map[zidx] []InstanceID (sorted)
 }
 
-func GetInstancesByObjInst() map[int]Object               { return gm.instances.byObjInst }
-func GetInstancesByObjType() map[string]map[Object]Object { return gm.instances.byObjType }
-func GetInstancesByBhvrInst() map[Behaviour]Object        { return gm.instances.byBhvrInst }
-func GetInstancesByBhvrType() map[int]map[Object]Object   { return gm.instances.byBhvrType }
-func SetInstancesZidx(inst Object, zidx int) {
+func GetInstIDs() []int                   { return gm.instances.all }
+func GetInstTypes() []string              { return gm.instances.allTypes[1:] }
+func GetInstByObjInstID(id int) Object    { return gm.instances.byObjInst[id] }
+func GetInstIDsByObjTypeID(id int) []int  { return gm.instances.byObjType[id] }
+func GetInstIDByBhvrInstID(id int) int    { return gm.instances.byBhvrInst[id] }
+func GetInstIDsByBhvrTypeID(id int) []int { return gm.instances.byBhvrType[id] }
+func setInstZidx(inst Object, zidx int) {
 	if _, ok := gm.instances.zidxInstances[zidx]; !ok {
 		// zidxOrdered
-		gm.instances.zidxOrdered = append(gm.instances.zidxOrdered, zidx)
-		// TODO: remove this sort, use findIntOnSlice instead
-		sort.Ints(gm.instances.zidxOrdered)
+		idx, _ := gogetautil.SliceIntOrderedFindIdx(gm.instances.zidxOrdered, zidx)
+		gm.instances.zidxOrdered = gogetautil.SliceInsert(gm.instances.zidxOrdered, idx, zidx)
 
 		// zidxInstance
 		gm.instances.zidxInstances[zidx] = make([]int, 0)
@@ -37,17 +46,17 @@ func SetInstancesZidx(inst Object, zidx int) {
 
 	// zidxInstance
 	if len(gm.instances.zidxInstances[zidx]) == 0 {
-		gm.instances.zidxInstances[zidx] = append(gm.instances.zidxInstances[zidx], inst.ID())
+		gm.instances.zidxInstances[zidx] = append(gm.instances.zidxInstances[zidx], inst.getID())
 	} else {
-		idx, _ := findIntOnSlice(gm.instances.zidxInstances[zidx], inst.ID())
-		gm.instances.zidxInstances[zidx] = append(gm.instances.zidxInstances[zidx][:idx], append([]int{inst.ID()}, gm.instances.zidxInstances[zidx][idx:]...)...)
+		idx2, _ := gogetautil.SliceIntOrderedFindIdx(gm.instances.zidxInstances[zidx], inst.getID())
+		gm.instances.zidxInstances[zidx] = gogetautil.SliceInsert(gm.instances.zidxInstances[zidx], idx2, inst.getID())
 	}
 }
-func DelInstancesZidx(inst Object) {
+func delInstZidx(inst Object) {
 	zidx := inst.Zidx()
 	if len(gm.instances.zidxInstances[zidx]) == 1 {
 		// zidxOrdered
-		idx, _ := findIntOnSlice(gm.instances.zidxOrdered, zidx)
+		idx, _ := gogetautil.SliceIntOrderedFindIdx(gm.instances.zidxOrdered, zidx)
 		gm.instances.zidxOrdered = append(gm.instances.zidxOrdered[:idx], gm.instances.zidxOrdered[idx+1:]...)
 
 		// zidxInstances
@@ -56,162 +65,219 @@ func DelInstancesZidx(inst Object) {
 	}
 
 	// zidxInstances
-	idx, _ := findIntOnSlice(gm.instances.zidxInstances[zidx], inst.ID())
-	gm.instances.zidxInstances[zidx] = append(gm.instances.zidxInstances[zidx][:idx], gm.instances.zidxInstances[zidx][idx+1:]...)
+	idx, _ := gogetautil.SliceIntOrderedFindIdx(gm.instances.zidxInstances[zidx], inst.getID())
+	gm.instances.zidxInstances[zidx] = gogetautil.SliceCut(gm.instances.zidxInstances[zidx], idx)
 }
-func UpdateInstancesZidx(inst Object, zidxNew int) {
-	DelInstancesZidx(inst)
-	SetInstancesZidx(inst, zidxNew)
+func updateInstZidx(inst Object, zidxNew int) {
+	delInstZidx(inst)
+	setInstZidx(inst, zidxNew)
 	inst.setZidx(zidxNew)
 }
 
-// findIntOnSlice returns the index of match the searched value, if not found it will returns the index of
-// the value closest and greater to the searched value. The input array MUST be SORTED.
-// TODO: create unit test
-// WARNING: watch this! this function is not properly unit tested, it might be returns wrong result
-func findIntOnSlice(arr []int, value int) (int, bool) {
-	start := 0
-	end := len(arr) - 1
-
-	for start <= end {
-		mid := (start + end) / 2
-
-		if value == arr[mid] {
-			return mid, true
-		} else if value < arr[mid] {
-			end = mid - 1
-		} else {
-			start = mid + 1
-		}
-	}
-	return end + 1, false
-}
-
 type behaviours struct {
-	byBhvrInst map[Behaviour]Behaviour
-	byObjInst  map[Object]map[int]Behaviour
-	byBhvrType map[int]map[Behaviour]Behaviour
+	unused     []int       // []bhvrInstID, up to 40 mb
+	all        []int       // []bhvrInstID, up to 40 mb
+	allTypes   []string    // [bhvrTypeID]bhvrType, up to 0,8 mb, undeletable, starts from 1
+	byBhvrInst []Behaviour // [bhvrInstID]Behaviour, up to 40 mb, starts from 1
+	byBhvrType [][]int     // [bhvrTypeID][]bhvrInstID, up to 40 mb, starts from 1
+	byObjInst  [][]int     // [objInstID][]bhvrInstID, up to 40 mb, starts from 1
 }
 
-func GetBehavioursByBhvrInst() map[Behaviour]Behaviour         { return gm.behaviours.byBhvrInst }
-func GetBehavioursByObjInst() map[Object]map[int]Behaviour     { return gm.behaviours.byObjInst }
-func GetBehavioursByBhvrType() map[int]map[Behaviour]Behaviour { return gm.behaviours.byBhvrType }
+func GetBhvrIDs() []int                    { return gm.behaviours.all }
+func GetBhvrTypes() []string               { return gm.behaviours.allTypes[1:] }
+func GetBhvrByBhvrInstID(id int) Behaviour { return gm.behaviours.byBhvrInst[id] }
+func GetBhvrIDsByBhvrTypeID(id int) []int  { return gm.behaviours.byBhvrType[id] }
+func GetBhvrIDsByObjInstID(id int) []int   { return gm.behaviours.byObjInst[id] }
 
 type behavioursData struct {
-	byBhvrType map[int]BehaviourInstancesData
+	byBhvrType []BehavioursData // [bhvrTypeID]BehavioursData, up to 200 b, undeletable, starts from 1
 }
 
-func GetBehavioursDataByBhvrType() map[int]BehaviourInstancesData {
-	return gm.behavioursData.byBhvrType
-}
+func GetBhvrDatas() []BehavioursData                { return gm.behavioursData.byBhvrType[1:] }
+func GetBhvrDataByBhvrTypeID(id int) BehavioursData { return gm.behavioursData.byBhvrType[id] }
 
 // Set an Instance to Game.
-func (g *game) setInstance(inst Object) {
-	// objd := ObjectData{object: obj}
-	instType := reflect.TypeOf(inst).String()
+func (g *game) setInstance(objInst Object) {
+	var objInstID int
+	if len(g.instances.unused) > 0 {
+		// objInstID
+		objInstID = g.instances.unused[0]
+		g.instances.unused = g.instances.unused[1:]
 
-	// case: instances.byObjInst
-	g.instances.byObjInst[g.instances.lastObjInst] = inst
-	inst.setID(g.instances.lastObjInst)
-	g.instances.lastObjInst++
+		// instances.byObjInst
+		g.instances.byObjInst[objInstID] = objInst
 
-	// case: instances.byObjType
-	if g.instances.byObjType[instType] == nil {
-		g.instances.byObjType[instType] = make(map[Object]Object)
+		// behaviours.byObjInst part A
+		g.behaviours.byObjInst[objInstID] = make([]int, 0)
+
+	} else {
+		// objInstID
+		objInstID = len(g.instances.byObjInst)
+
+		// instances.byObjInst
+		g.instances.byObjInst = append(g.instances.byObjInst, objInst)
+
+		// behaviours.byObjInst part A
+		g.behaviours.byObjInst = append(g.behaviours.byObjInst, []int{})
+
 	}
-	g.instances.byObjType[instType][inst] = inst
+	objInst.setID(objInstID)
 
-	// case: zidx
-	SetInstancesZidx(inst, 0)
+	// instances.all
+	idx1, _ := gogetautil.SliceIntOrderedFindIdx(g.instances.all, objInstID)
+	g.instances.all = gogetautil.SliceInsert(g.instances.all, idx1, objInstID)
+
+	objType := reflect.TypeOf(objInst).String()
+	objTypeID := gogetautil.SliceStringFindIdx(g.instances.allTypes, objType)
+	if objTypeID < 0 {
+		// instances.allTypes
+		objTypeID = len(g.instances.allTypes)
+		g.instances.allTypes = append(g.instances.allTypes, objType)
+
+		// instances.byObjType
+		g.instances.byObjType = append(g.instances.byObjType, []int{objInstID})
+
+	} else {
+		// instances.byObjType
+		idx2, _ := gogetautil.SliceIntOrderedFindIdx(g.instances.byObjType[objTypeID], objInstID)
+		g.instances.byObjType[objTypeID] = gogetautil.SliceInsert(g.instances.byObjType[objTypeID], idx2, objInstID)
+
+	}
+	objInst.setType(objType)
+	objInst.setTypeID(objTypeID)
+
+	// zidx
+	setInstZidx(objInst, 0)
 }
 
 // Delete an Instance from Game.
-func (g *game) delInstance(inst Object) {
-	instType := reflect.TypeOf(inst).String()
+func (g *game) delInstance(objInst Object) {
+	objInstID := objInst.getID()
+	g.instances.unused = append(g.instances.unused, objInstID)
+	objTypeID := objInst.getTypeID()
 
-	// case: instances.byObjInst
-	delete(g.instances.byObjInst, inst.ID())
+	// instances.all
+	idx1, _ := gogetautil.SliceIntOrderedFindIdx(g.instances.all, objInstID)
+	g.instances.all = gogetautil.SliceCut(g.instances.all, idx1)
 
-	// case: instances.byObjType
-	delete(g.instances.byObjType[instType], inst)
-	if len(g.instances.byObjType[instType]) == 0 {
-		delete(g.instances.byObjType, instType)
-	}
+	// instances.allTypes
+	// instances.allTypes is undeletable
 
-	// case: zidx
-	DelInstancesZidx(inst)
+	// instances.byObjInst
+	g.instances.byObjInst[objInstID] = nil
+
+	// instances.byObjType
+	idx2, _ := gogetautil.SliceIntOrderedFindIdx(g.instances.byObjType[objTypeID], objInstID)
+	g.instances.byObjType[objTypeID] = gogetautil.SliceCut(g.instances.byObjType[objTypeID], idx2)
+
+	// zidx
+	delInstZidx(objInst)
 }
 
 // Set a Behaviour to Game.
-func (g *game) setBehaviour(inst Object, bhvrInst Behaviour) {
-	// bhvrType := reflect.TypeOf(bhvrInst).String()
+func (g *game) setBehaviour(objInst Object, bhvrInst Behaviour) {
+	objInstID := objInst.getID()
+	var bhvrInstID int
+	if len(g.behaviours.unused) > 0 {
+		// bhvrInstID
+		bhvrInstID = g.behaviours.unused[0]
+		g.behaviours.unused = g.behaviours.unused[1:]
 
-	// case: behavioursData.byBhvrType
-	bhvrType := bhvrInst.Type()
-	// TODO: why if we use this conditional `(bhvrType == 0) || !ok`, it drops fps by almost 50%
-	if _, ok := g.behavioursData.byBhvrType[bhvrType]; !ok {
-		bhvrType = len(g.behavioursData.byBhvrType) + 1
-		bhvrInst.Data().setID(bhvrType)
-		g.behavioursData.byBhvrType[bhvrType] = bhvrInst.Data()
+		// instances.byBhvrInst
+		g.instances.byBhvrInst[bhvrInstID] = objInstID
+
+		// behaviours.byBhvrInst
+		g.behaviours.byBhvrInst[bhvrInstID] = bhvrInst
+
+	} else {
+		// bhvrInstID
+		bhvrInstID = len(g.behaviours.byBhvrInst)
+
+		// instances.byBhvrInst
+		g.instances.byBhvrInst = append(g.instances.byBhvrInst, objInstID)
+
+		// behaviours.byBhvrInst
+		g.behaviours.byBhvrInst = append(g.behaviours.byBhvrInst, bhvrInst)
+
 	}
+	bhvrInst.setID(bhvrInstID)
 
-	// case: instances.byBhvrInst (set behaviour to parentObject-behvaiour relation on
-	// top level game)
-	g.instances.byBhvrInst[bhvrInst] = inst
+	// behaviours.all
+	idx1, _ := gogetautil.SliceIntOrderedFindIdx(g.behaviours.all, bhvrInstID)
+	g.behaviours.all = gogetautil.SliceInsert(g.behaviours.all, idx1, bhvrInstID)
 
-	// case: instances.byBhvrType
-	if g.instances.byBhvrType[bhvrType] == nil {
-		g.instances.byBhvrType[bhvrType] = make(map[Object]Object)
+	bhvrType := reflect.TypeOf(bhvrInst).String()
+	bhvrTypeID := gogetautil.SliceStringFindIdx(g.behaviours.allTypes, bhvrType)
+	if bhvrTypeID < 0 {
+		// behaviours.allTypes
+		bhvrTypeID = len(g.behaviours.allTypes)
+		g.behaviours.allTypes = append(g.behaviours.allTypes, bhvrType)
+
+		// instances.byBhvrType
+		g.instances.byBhvrType = append(g.instances.byBhvrType, []int{objInstID})
+
+		// behaviours.byBhvrType
+		g.behaviours.byBhvrType = append(g.behaviours.byBhvrType, []int{bhvrInstID})
+
+		// behavioursData.byBhvrType
+		g.behavioursData.byBhvrType = append(g.behavioursData.byBhvrType, bhvrInst.Data())
+
+		// behavioursData instance
+		bhvrInst.Data().setID(bhvrTypeID)
+		bhvrInst.Data().setType(bhvrType)
+		bhvrInst.Data().setTypeID(bhvrTypeID)
+
+	} else {
+		// instances.byBhvrType
+		idx2, _ := gogetautil.SliceIntOrderedFindIdx(g.instances.byBhvrType[bhvrTypeID], objInstID)
+		g.instances.byBhvrType[bhvrTypeID] = gogetautil.SliceInsert(g.instances.byBhvrType[bhvrTypeID], idx2, objInstID)
+
+		// behaviours.byBhvrType
+		idx3, _ := gogetautil.SliceIntOrderedFindIdx(g.behaviours.byBhvrType[bhvrTypeID], bhvrInstID)
+		g.behaviours.byBhvrType[bhvrTypeID] = gogetautil.SliceInsert(g.behaviours.byBhvrType[bhvrTypeID], idx3, bhvrInstID)
+
 	}
-	g.instances.byBhvrType[bhvrType][inst] = inst
+	bhvrInst.setType(bhvrType)
+	bhvrInst.setTypeID(bhvrTypeID)
 
-	// case: behaviours.byBhvrInst
-	g.behaviours.byBhvrInst[bhvrInst] = bhvrInst
-
-	// case: behaviours.byObjInst
-	if g.behaviours.byObjInst[inst] == nil {
-		g.behaviours.byObjInst[inst] = make(map[int]Behaviour)
-	}
-	g.behaviours.byObjInst[inst][bhvrType] = bhvrInst
-
-	// case: behaviours.byBhvrType
-	if g.behaviours.byBhvrType[bhvrType] == nil {
-		g.behaviours.byBhvrType[bhvrType] = make(map[Behaviour]Behaviour)
-	}
-	g.behaviours.byBhvrType[bhvrType][bhvrInst] = bhvrInst
+	// behaviours.byObjInst part B
+	g.behaviours.byObjInst[objInstID] = append(g.behaviours.byObjInst[objInstID], bhvrInstID)
 
 }
 
 // Delete a Behaviour from Game.
-func (g *game) delBehaviour(inst Object, bhvrInst Behaviour) {
-	// bhvrType := reflect.TypeOf(bhvrInst).String()
-	bhvrType := bhvrInst.Type()
+func (g *game) delBehaviour(objInst Object, bhvrInst Behaviour) {
+	objInstID := objInst.getID()
+	bhvrInstID := bhvrInst.getID()
+	g.behaviours.unused = append(g.behaviours.unused, bhvrInstID)
+	bhvrTypeID := bhvrInst.getTypeID()
 
-	// case: instances.byBhvrInst (set behaviour to parentObject-behvaiour relation on
-	// top level game)
-	delete(g.instances.byBhvrInst, bhvrInst)
+	// instances.byBhvrInst
+	g.instances.byBhvrInst[bhvrInstID] = 0
 
-	// case: instances.byBhvrType
-	delete(g.instances.byBhvrType[bhvrType], inst)
-	if len(g.instances.byBhvrType[bhvrType]) == 0 {
-		delete(g.instances.byBhvrType, bhvrType)
-		// case: behavioursData.byBhvrType
-		// delete(bhvrsData.byBhvrType, bhvrType)
-	}
+	// instances.byBhvrType
+	idx1, _ := gogetautil.SliceIntOrderedFindIdx(g.instances.byBhvrType[bhvrTypeID], objInstID)
+	g.instances.byBhvrType[bhvrTypeID] = gogetautil.SliceCut(g.instances.byBhvrType[bhvrTypeID], idx1)
 
-	// case: behaviours.byBhvrInst
-	delete(g.behaviours.byBhvrInst, bhvrInst)
+	// behaviours.all
+	idx2, _ := gogetautil.SliceIntOrderedFindIdx(g.behaviours.all, bhvrInstID)
+	g.behaviours.all = gogetautil.SliceCut(g.behaviours.all, idx2)
 
-	// case: behaviours.byObjInst
-	delete(g.behaviours.byObjInst[inst], bhvrType)
-	if len(g.behaviours.byObjInst[inst]) == 0 {
-		delete(g.behaviours.byObjInst, inst)
-	}
+	// behaviours.allTypes
+	// behaviours.allTypes is undeletable
 
-	// case: behaviours.byBhvrType
-	delete(g.behaviours.byBhvrType[bhvrType], bhvrInst)
-	if len(g.behaviours.byBhvrType[bhvrType]) == 0 {
-		delete(g.behaviours.byBhvrType, bhvrType)
-	}
+	// behaviours.byBhvrInst
+	g.behaviours.byBhvrInst[bhvrInstID] = nil
+
+	// behaviours.byBhvrType
+	idx3, _ := gogetautil.SliceIntOrderedFindIdx(g.behaviours.byBhvrType[bhvrTypeID], bhvrInstID)
+	g.behaviours.byBhvrType[bhvrTypeID] = gogetautil.SliceCut(g.behaviours.byBhvrType[bhvrTypeID], idx3)
+
+	// behaviours.byObjInst
+	idx4, _ := gogetautil.SliceIntOrderedFindIdx(g.behaviours.byObjInst[objInstID], bhvrInstID)
+	g.behaviours.byObjInst[objInstID] = gogetautil.SliceCut(g.behaviours.byObjInst[objInstID], idx4)
+
+	// behavioursData.byBhvrType
+	// behavioursData.byBhvrType is undeletable
 
 }
