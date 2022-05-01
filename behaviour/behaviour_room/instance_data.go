@@ -1,6 +1,7 @@
 package behaviour_room
 
 import (
+	bhvrCommon "github.com/pikomonde/gogeta/behaviour/behaviour_common"
 	"github.com/pikomonde/gogeta/gm"
 )
 
@@ -30,16 +31,17 @@ func (data *RoomsData) DelInstance(instance gm.Object) {
 func (data *RoomsData) PreUpdate() {
 	// TODO: should filter with room active?
 	// TODO: this is expensive
-	// for instance, instanceData := range Data.instancesData {
-	// 	if instanceData.IsDeleteWhenOutside {
-	// 		instCommon := gm.MustGetBehaviour(instance, Room{}.Type(), bhvrCommon.Common{}.Type()).(*bhvrCommon.Common)
-	// 		maskOuterRect := instCommon.TrasnformedMask().OuterRectangle()
-	// 		bhvrRoomInst := instanceData.Room()
-	// 		if !bhvrRoomInst.window().ContainsPoint(maskOuterRect.Lo()) && !bhvrRoomInst.window().ContainsPoint(maskOuterRect.Hi()) {
-	// 			gm.DelObject(instance)
-	// 		}
-	// 	}
-	// }
+	for instanceID, instanceData := range Data.instancesData {
+		instance := gm.GetInstByObjInstID(instanceID)
+		if instanceData.IsDeleteWhenOutside {
+			instCommon := gm.MustGetBehaviour(instance, gm.TypeID(&Room{}), gm.TypeID(&bhvrCommon.Common{})).(*bhvrCommon.Common)
+			maskOuterRect := instCommon.TrasnformedMask().OuterRectangle()
+			bhvrRoomInst := instanceData.Room()
+			if !bhvrRoomInst.window().ContainsPoint(maskOuterRect.Lo()) && !bhvrRoomInst.window().ContainsPoint(maskOuterRect.Hi()) {
+				gm.DelObject(instance)
+			}
+		}
+	}
 }
 
 func (data *RoomsData) PostUpdate() {
