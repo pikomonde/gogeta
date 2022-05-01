@@ -30,6 +30,9 @@ func (ins *Instancer) setType(d string) { ins.typ = d }
 func (ins *Instancer) getTypeID() int   { return ins.typeID }
 func (ins *Instancer) setTypeID(d int)  { ins.typeID = d }
 
+// TODO: better alternative than ID(ins) or TypeID(ins) directly from instance using struct embedding?
+// using reflect?
+
 // ID returns the instance's ID. It is not safe for use on search query. If it is never been set on
 // game_data before, it will return 0.
 func ID(ins Instance) int {

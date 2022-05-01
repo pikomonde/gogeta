@@ -29,8 +29,8 @@ func (data *CommonsData) PreUpdate() {
 			continue
 		}
 		bhvrCommonInst := gm.GetBhvrByBhvrInstID(bhvrInstID).(*Common)
-		// // TODO: using delta time instead per tick for stability
-		// // ebiten.MaxTPS()
+		// TODO: using delta time instead per tick for stability.
+		// ebiten.MaxTPS(). The downside is we can't reproducing step by step.
 		bhvrCommonInst.Position.X += bhvrCommonInst.Speed.X
 		bhvrCommonInst.Position.Y += bhvrCommonInst.Speed.Y
 	}

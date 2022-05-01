@@ -11,6 +11,14 @@ const (
 	maxBhvrTypeID = 50     // TODO: should we enforce it?
 )
 
+func duplicate(arr []int) []int {
+	res := make([]int, len(arr))
+	// TODO: this copy is a more expensive then delete slice later but solve the problem neatly.
+	// TODO: attach benchmark for the proove
+	copy(res, arr)
+	return res
+}
+
 // It turns out that map[string] is more expensive than map[int] and map[interface{}]. Theoretically,
 // map[int] is O(1), because it has finite domain (bits?), meanwhile, map[string] average is O(N log N),
 // because it might apply hashing. So it is preferable to use map[int] instead.
@@ -28,12 +36,12 @@ type instances struct {
 	zidxInstances map[int][]int // map[zidx] []InstanceID (sorted)
 }
 
-func GetInstIDs() []int                   { return gm.instances.all }
+func GetInstIDs() []int                   { return duplicate(gm.instances.all) }
 func GetInstTypes() []string              { return gm.instances.allTypes[1:] }
 func GetInstByObjInstID(id int) Object    { return gm.instances.byObjInst[id] }
-func GetInstIDsByObjTypeID(id int) []int  { return gm.instances.byObjType[id] }
+func GetInstIDsByObjTypeID(id int) []int  { return duplicate(gm.instances.byObjType[id]) }
 func GetInstIDByBhvrInstID(id int) int    { return gm.instances.byBhvrInst[id] }
-func GetInstIDsByBhvrTypeID(id int) []int { return gm.instances.byBhvrType[id] }
+func GetInstIDsByBhvrTypeID(id int) []int { return duplicate(gm.instances.byBhvrType[id]) }
 func setInstZidx(inst Object, zidx int) {
 	if _, ok := gm.instances.zidxInstances[zidx]; !ok {
 		// zidxOrdered
@@ -83,11 +91,11 @@ type behaviours struct {
 	byObjInst  [][]int     // [objInstID][]bhvrInstID, up to 40 mb, starts from 1
 }
 
-func GetBhvrIDs() []int                    { return gm.behaviours.all }
+func GetBhvrIDs() []int                    { return duplicate(gm.behaviours.all) }
 func GetBhvrTypes() []string               { return gm.behaviours.allTypes[1:] }
 func GetBhvrByBhvrInstID(id int) Behaviour { return gm.behaviours.byBhvrInst[id] }
-func GetBhvrIDsByBhvrTypeID(id int) []int  { return gm.behaviours.byBhvrType[id] }
-func GetBhvrIDsByObjInstID(id int) []int   { return gm.behaviours.byObjInst[id] }
+func GetBhvrIDsByBhvrTypeID(id int) []int  { return duplicate(gm.behaviours.byBhvrType[id]) }
+func GetBhvrIDsByObjInstID(id int) []int   { return duplicate(gm.behaviours.byObjInst[id]) }
 
 type behavioursData struct {
 	byBhvrType []BehavioursData // [bhvrTypeID]BehavioursData, up to 200 b, undeletable, starts from 1

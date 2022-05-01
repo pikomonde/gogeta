@@ -76,13 +76,28 @@ func (g *game) Update() error {
 		bhvrInstData.PostUpdate()
 	}
 
+	// // delete (garbage collected) unused instance in a slice
+	// g.instances.all = gogetautil.SliceCutZeros(g.instances.all)
+	// for i := range g.instances.byObjType {
+	// 	gogetautil.SliceCutZeros(g.instances.byObjType[i])
+	// }
+	// for i := range g.instances.byBhvrType {
+	// 	gogetautil.SliceCutZeros(g.instances.byBhvrType[i])
+	// }
+
+	// g.behaviours.all = gogetautil.SliceCutZeros(g.behaviours.all)
+	// for i := range g.behaviours.byBhvrType {
+	// 	gogetautil.SliceCutZeros(g.behaviours.byBhvrType[i])
+	// }
+	// for i := range g.behaviours.byObjInst {
+	// 	gogetautil.SliceCutZeros(g.behaviours.byObjInst[i])
+	// }
+
 	return nil
 }
 
 // Draw all Instances and BehavioursData.
 func (g *game) Draw(screen *ebiten.Image) {
-
-	// ebitenutil.DebugPrintAt(screen, Println(), 20, 100)
 	for _, zidx := range g.instances.zidxOrdered {
 		for _, instID := range g.instances.zidxInstances[zidx] {
 			if inst := GetInstByObjInstID(instID); inst != nil {
@@ -95,6 +110,7 @@ func (g *game) Draw(screen *ebiten.Image) {
 			}
 		}
 	}
+	// ebitenutil.DebugPrintAt(screen, Println(), 20, 100)
 }
 
 func (g *game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeight int) {
