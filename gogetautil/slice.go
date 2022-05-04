@@ -37,3 +37,43 @@ func SliceInsert(arr []int, idx int, val int) []int {
 func SliceCut(arr []int, idx int) []int {
 	return append(arr[:idx], arr[idx+1:]...)
 }
+
+func SliceCutZeros(arr []int) []int {
+	return sliceCutZerosWithoutAppend(arr)
+}
+
+// sliceCutZerosWithAppend slightly faster, but can be exponentially slower in some cases. It might be
+// because of the calling of append function repeatedly.
+func sliceCutZerosWithAppend(arr []int) []int {
+	for idx := len(arr) - 1; idx >= 0; idx-- {
+		if arr[idx] == 0 {
+			arr = SliceCut(arr, idx)
+		}
+	}
+	return arr
+}
+
+// sliceCutZerosWithoutAppend should be faster. TODO: unit test
+func sliceCutZerosWithoutAppend(arr []int) []int {
+out:
+	for idx, idxToSwitch := 0, 1; idx < len(arr); idx++ {
+		if arr[idx] == 0 {
+			for {
+				if idxToSwitch > len(arr)-1 {
+					arr = arr[:idx]
+					break out
+				}
+				if arr[idxToSwitch] == 0 {
+					idxToSwitch++
+					continue
+				}
+				break
+			}
+
+			// switch
+			arr[idxToSwitch], arr[idx] = arr[idx], arr[idxToSwitch]
+			idxToSwitch++
+		}
+	}
+	return arr
+}

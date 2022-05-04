@@ -9,10 +9,40 @@ import (
 var gm game
 
 type game struct {
-	instances        instances      // all instances in the game, type "Object" is "object interface pointer"
-	behaviours       behaviours     // all behaviours in the game, type "Behaviours" is "behaviour interface pointer"
-	behavioursData   behavioursData //
-	layoutW, layoutH int
+	// Object, Behaviour, and BehavioursData management
+	instances      instances      // all instances in the game, type "Object" is "object interface pointer"
+	behaviours     behaviours     // all behaviours in the game, type "Behaviours" is "behaviour interface pointer"
+	behavioursData behavioursData //
+
+	// Layout management
+	layout layout
+}
+
+func init() {
+	gm.instances.unused = make([]int, 0)
+	gm.instances.all = make([]int, 0)
+	gm.instances.allTypes = []string{""}
+	gm.instances.byObjInst = []Object{nil}
+	gm.instances.byObjType = [][]int{nil}
+	gm.instances.byBhvrInst = []int{0}
+	gm.instances.byBhvrType = [][]int{nil}
+
+	gm.instances.zidxInstances = make(map[int][]int)
+	gm.instances.zidxOrdered = make([]int, 0)
+
+	gm.behaviours.unused = make([]int, 0)
+	gm.behaviours.all = make([]int, 0)
+	gm.behaviours.allTypes = []string{""}
+	gm.behaviours.byBhvrInst = []Behaviour{nil}
+	gm.behaviours.byObjInst = [][]int{nil}
+	gm.behaviours.byBhvrType = [][]int{nil}
+
+	gm.behavioursData.byBhvrType = []BehavioursData{nil}
+
+	// layout
+	gm.layout.canvasW = DefaultCanvasW
+	gm.layout.canvasH = DefaultCanvasH
+
 }
 
 // TODO: restore this function for debugging
@@ -20,7 +50,7 @@ type game struct {
 // 	return gm.objects
 // }
 
-func Println() string {
+func PrintDebug() string {
 	return fmt.Sprintf(`> %2f %2f %d
 instances.unused:        %+v
 instances.all:           %+v
@@ -98,6 +128,7 @@ func (g *game) Update() error {
 
 // Draw all Instances and BehavioursData.
 func (g *game) Draw(screen *ebiten.Image) {
+	// screenW, screenH := screen.Size()
 	for _, zidx := range g.instances.zidxOrdered {
 		for _, instID := range g.instances.zidxInstances[zidx] {
 			if inst := GetInstByObjInstID(instID); inst != nil {
@@ -111,36 +142,19 @@ func (g *game) Draw(screen *ebiten.Image) {
 		}
 	}
 	// ebitenutil.DebugPrintAt(screen, Println(), 20, 100)
+	// ebitenutil.DebugPrintAt(screen, fmt.Sprint(screenW, screenH, gm.layout.screenW, gm.layout.screenH), 20, 100)
 }
 
 func (g *game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeight int) {
-	return g.layoutW, g.layoutH
-}
-
-func Init(windowW, windowH, layoutW, layoutH int) error {
-	gm.instances.unused = make([]int, 0)
-	gm.instances.all = make([]int, 0)
-	gm.instances.allTypes = []string{""}
-	gm.instances.byObjInst = []Object{nil}
-	gm.instances.byObjType = [][]int{nil}
-	gm.instances.byBhvrInst = []int{0}
-	gm.instances.byBhvrType = [][]int{nil}
-
-	gm.instances.zidxInstances = make(map[int][]int)
-	gm.instances.zidxOrdered = make([]int, 0)
-
-	gm.behaviours.unused = make([]int, 0)
-	gm.behaviours.all = make([]int, 0)
-	gm.behaviours.allTypes = []string{""}
-	gm.behaviours.byBhvrInst = []Behaviour{nil}
-	gm.behaviours.byObjInst = [][]int{nil}
-	gm.behaviours.byBhvrType = [][]int{nil}
-
-	gm.behavioursData.byBhvrType = []BehavioursData{nil}
-
-	gm.layoutW, gm.layoutH = layoutW, layoutH
-	ebiten.SetWindowSize(windowW, windowH)
-	return nil
+	if g.layout.layoutType == LayoutType_SnapCanvas {
+		g.layout.screenW, g.layout.screenH = g.layout.canvasW, g.layout.canvasH
+		return g.layout.canvasW, g.layout.canvasH
+	} else if g.layout.layoutType == LayoutType_SnapOutside {
+		g.layout.screenW, g.layout.screenH = outsideWidth, outsideHeight
+		return outsideWidth, outsideHeight
+	}
+	g.layout.screenW, g.layout.screenH = g.layout.layoutCustomFunc(outsideWidth, outsideHeight)
+	return g.layout.screenW, g.layout.screenH
 }
 
 func Run() error {

@@ -20,26 +20,18 @@ import (
 )
 
 const (
-	WindowWidth  = 600
-	WindowHeight = 600
-	CanvasWidth  = WindowWidth
-	CanvasHeight = WindowHeight
-	// CanvasWidth  = 186
-	// CanvasHeight = 300
-	// CanvasWidth  = 93  // safe zone area is 67.5 pixel (based on 20:9), which is pixel 13-80
-	// CanvasHeight = 150 // safe zone area is 124 pixel (based on 4:3), which is pixel 13-137
+	CanvasWidth  = 600
+	CanvasHeight = 600
 )
 
 var fontBocil57 = txt.MustNewFontFromFile("asset/sprite/font_bocil_57_0020_007F.png", 5, 7, txt.CharSet_0020_007F, txt.Font{Size: 24})
 
-// TODO:
-// ui should get from actual width & height
-// room's action should on canvas's safe zone
-
 func main() {
 	// Initialize objects
-	gm.Init(WindowWidth, WindowHeight, CanvasWidth, CanvasHeight)
+	gm.SetLayoutType(gm.LayoutType_SnapOutside)
 	gm.InitObject(&roomMain{})
+	ebiten.SetWindowSize(CanvasWidth, CanvasHeight)
+	// ebiten.SetWindowResizable(true)
 
 	// Run game
 	if err := gm.Run(); err != nil {
@@ -54,26 +46,28 @@ type ui struct {
 func (obj *ui) Init()   {}
 func (obj *ui) Update() {}
 func (obj *ui) Draw(screen *ebiten.Image) {
+	scrW, scrH := gm.GetScreenSize()
+	fontSizeMul := float64(scrW) / float64(CanvasHeight)
 	instRoomMain := gm.MustGetObjectParent(bhvrRoom.Data.ByInstance(gm.ID(obj)).Room()).(*roomMain)
 
 	fontBocil57.LineHeight = 3
-	fontBocil57.Size = 24
+	fontBocil57.Size = uint64(24 * fontSizeMul)
 	fontBocil57.Allignment = txt.Allignment_TopLeft
 	fontBocil57.Draw(screen, fmt.Sprintf("ENERGY: %d\nBREAD: %d", instRoomMain.Energy, instRoomMain.Bread), 16, 16)
 
 	if instRoomMain.IsGameEnd {
-		fontBocil57.Size = 20
+		fontBocil57.Size = uint64(20 * fontSizeMul)
 		fontBocil57.Allignment = txt.Allignment_MiddleCenter
 		fontBocil57.Draw(screen,
 			fmt.Sprintf("THE END: YOU GOT %d BREAD\nCLICK ANYWHERE TO CONTINUE", instRoomMain.Bread),
-			CanvasWidth/2, CanvasHeight/2)
+			scrW/2, scrH/2)
 	}
 
-	fontBocil57.Size = 12
+	fontBocil57.Size = uint64(12 * fontSizeMul)
 	fontBocil57.Allignment = txt.Allignment_BottomLeft
 	fontBocil57.Draw(screen,
 		fmt.Sprintf("%2f %2f %d", ebiten.CurrentTPS(), ebiten.CurrentFPS(), len(gm.GetInstIDs())),
-		16, CanvasHeight-16)
+		16, scrH-16)
 }
 
 type roomMain struct {
@@ -90,7 +84,7 @@ type roomMain struct {
 
 func (obj *roomMain) Init() {
 	rand.Seed(time.Now().UnixNano())
-	obj.BhvrRoom.Size = r2.Point{X: CanvasWidth, Y: CanvasHeight}
+	obj.BhvrRoom.Size = r2.Point{X: float64(CanvasWidth), Y: float64(CanvasHeight)}
 	obj.Tick = 0
 	obj.SpawnRate = 60
 	obj.JunkSpeed = 1.4
@@ -102,9 +96,10 @@ func (obj *roomMain) Init() {
 }
 
 func (obj *roomMain) Update() {
-	// ebiten.SetWindowTitle(fmt.Sprintf("%2f %2f %d", ebiten.CurrentTPS(), ebiten.CurrentFPS(), len(gm.GetObjectDB()["obj"])))
+	scrW, scrH := gm.GetScreenSize()
+	obj.BhvrRoom.Size = r2.Point{X: float64(scrW), Y: float64(scrH)}
 
-	// move this to other object called control
+	// move this to other object called control/controller
 	obj.TouchIDs = inpututil.AppendJustPressedTouchIDs([]ebiten.TouchID{})
 
 	// is ended
@@ -127,7 +122,8 @@ func (obj *roomMain) Update() {
 		} else {
 			junkJunkType = junkTypeEnergy
 		}
-		junkDistance := float64(CanvasWidth) * 0.8 // (CanvasWidth / 2) * 2^(0.5)
+		junkDistanceWidth := float64(scrW) * 0.8  // (scrW / 2) * 2^(0.5)
+		junkDistanceHeight := float64(scrH) * 0.8 // (scrH / 2) * 2^(0.5)
 		junkAngle := 2 * math.Pi * rand.Float64()
 		junkDirAngle := 0.25 * math.Pi * (rand.Float64() - 0.5)
 
@@ -148,15 +144,13 @@ func (obj *roomMain) Update() {
 		// }
 
 		// create junk instance
-		// if ebiten.IsKeyPressed(ebiten.KeyRight) {
-		// 	for i := 0; i < 500; i++ {
 		obj.BhvrRoom.InitObject(
 			&objJunk{
 				BhvrCommon: bhvrCommon.Common{
 					Position: r2.Point{
-						X: float64(CanvasWidth)/2 + junkDistance*math.Sin(junkAngle),
-						Y: float64(CanvasHeight)/2 + junkDistance*math.Cos(junkAngle),
-					},
+						X: junkDistanceWidth * math.Sin(junkAngle),
+						Y: junkDistanceHeight * math.Cos(junkAngle),
+					}.Add(r2.Point{float64(scrW) / 2, float64(scrH) / 2}),
 					Speed: r2.Point{
 						X: -math.Sin(junkAngle + junkDirAngle),
 						Y: -math.Cos(junkAngle + junkDirAngle),
@@ -168,8 +162,6 @@ func (obj *roomMain) Update() {
 			},
 			bhvrRoom.InstanceData{},
 		).SetZidx(50)
-		// 	}
-		// }
 		obj.Energy--
 	}
 
