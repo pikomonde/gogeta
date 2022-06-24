@@ -91,7 +91,6 @@ func (obj *roomMain) Init() {
 	obj.Bread = 0
 	obj.Energy = 12
 
-	// Zidx: 95
 	obj.BhvrRoom.InitObject(&ui{}, bhvrRoom.InstanceData{}).SetZidx(95)
 }
 

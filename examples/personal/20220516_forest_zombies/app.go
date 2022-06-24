@@ -5,28 +5,27 @@ import (
 	_ "image/png"
 	"log"
 
+	"github.com/golang/geo/r2"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	bhvrCommon "github.com/pikomonde/gogeta/behaviour/behaviour_common"
 	bhvrRoom "github.com/pikomonde/gogeta/behaviour/behaviour_room"
 	"github.com/pikomonde/gogeta/gm"
+	"github.com/pikomonde/gogeta/gogetautil/txt"
 )
 
 const (
-	WindowWidth  = 600
-	WindowHeight = 600
-	CanvasWidth  = 300
-	CanvasHeight = 300
-	// CanvasWidth  = 186
-	// CanvasHeight = 300
-	// CanvasWidth  = 93
-	// CanvasHeight = 150
+	CanvasWidth  = 372
+	CanvasHeight = 600
 )
+
+var fontBocil57 = txt.MustNewFontFromFile("asset/sprite/font_bocil_57_0020_007F.png", 5, 7, txt.CharSet_0020_007F, txt.Font{Size: 24})
 
 func main() {
 	// Initialize objects
-	gm.Init(WindowWidth, WindowHeight, CanvasWidth, CanvasHeight)
-	gm.InitObject(&room01{})
+	gm.SetLayoutType(gm.LayoutType_SnapOutside)
+	gm.InitObject(&roomMain{})
+	ebiten.SetWindowSize(CanvasWidth, CanvasHeight)
 
 	// Run game
 	if err := gm.Run(); err != nil {
@@ -34,20 +33,21 @@ func main() {
 	}
 }
 
-type room01 struct {
+type roomMain struct {
 	gm.Objecter
 	BhvrRoom bhvrRoom.Room
 }
 
-func (obj *room01) Init() {
+func (obj *roomMain) Init() {
+	obj.BhvrRoom.Size = r2.Point{X: float64(CanvasWidth), Y: float64(CanvasHeight)}
 	obj.BhvrRoom.InitObject(&obj01{}, bhvrRoom.InstanceData{})
 	obj.BhvrRoom.InitObject(&obj02{}, bhvrRoom.InstanceData{})
 }
 
-func (obj *room01) Update() {
+func (obj *roomMain) Update() {
 }
 
-func (obj *room01) Draw(screen *ebiten.Image) {
+func (obj *roomMain) Draw(screen *ebiten.Image) {
 	x, y := ebiten.CursorPosition()
 	ebitenutil.DebugPrintAt(screen, fmt.Sprintf("mouse loc: %d %d", x, y), 8, 8)
 }

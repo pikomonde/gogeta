@@ -45,11 +45,6 @@ func init() {
 
 }
 
-// TODO: restore this function for debugging
-// func GetObjectDB() objects {
-// 	return gm.objects
-// }
-
 func PrintDebug() string {
 	return fmt.Sprintf(`> %2f %2f %d
 instances.unused:        %+v
