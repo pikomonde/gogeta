@@ -22,6 +22,8 @@ func (bhvr *Room) Data() gm.BehavioursData { return &Data }
 
 func (bhvr *Room) PreInit() {
 	bhvr.instances = make(map[gm.Object]gm.Object)
+	w, h := gm.GetCanvasSize()
+	bhvr.Size = r2.Point{X: float64(w), Y: float64(h)}
 }
 
 func (bhvr *Room) PostInit() {
