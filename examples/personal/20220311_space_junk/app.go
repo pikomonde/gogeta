@@ -154,7 +154,7 @@ func (obj *roomMain) Update() {
 						X: -math.Sin(junkAngle + junkDirAngle),
 						Y: -math.Cos(junkAngle + junkDirAngle),
 					}.Normalize().Mul(obj.JunkSpeed),
-					Scale: r2.Point{X: 2, Y: 2},
+					Scale: &r2.Point{X: 2, Y: 2},
 					// IsDrawMask: true,
 				},
 				JunkType: junkJunkType,

@@ -2,7 +2,6 @@ package behaviour_common
 
 import (
 	"image/color"
-	"log"
 
 	"github.com/golang/geo/r1"
 	"github.com/golang/geo/r2"
@@ -14,26 +13,26 @@ import (
 type Common struct {
 	gm.Instancer
 	Sprite     Sprite
-	Position   r2.Point // Position of the instance based on cartesian room
-	Speed      r2.Point // Velocity of the instance based on cartesian room
-	Angle      float64  // Angle of the instance based on sprite anchor
-	Scale      r2.Point // Scale of the instance based on sprite anchor
-	IsDrawMask bool     // Draw instance's mask
+	Position   r2.Point  // Position of the instance based on cartesian room
+	Speed      r2.Point  // Velocity of the instance based on cartesian room
+	Angle      float64   // Angle of the instance based on sprite anchor
+	Scale      *r2.Point // Scale of the instance based on sprite anchor (Default (1, 1))
+	IsDrawMask bool      // Draw instance's mask
 }
 
 func (bhvr *Common) Data() gm.BehavioursData { return &Data }
 
 func (bhvr *Common) PreInit() {
 	bhvr.Sprite.PreInit()
-	if (bhvr.Scale.X == 0) || (bhvr.Scale.Y == 0) {
-		log.Panic("Behaviour Common: Scale X or Y should not be 0")
+	if bhvr.Scale == nil {
+		bhvr.Scale = &r2.Point{1, 1}
 	}
 }
 
 func (bhvr *Common) PostInit() {
 	bhvr.Sprite.PostInit()
-	if (bhvr.Scale.X == 0) || (bhvr.Scale.Y == 0) {
-		log.Panic("Behaviour Common: Scale X or Y should not be 0")
+	if bhvr.Scale == nil {
+		bhvr.Scale = &r2.Point{1, 1}
 	}
 }
 
